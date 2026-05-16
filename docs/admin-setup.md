@@ -18,5 +18,5 @@ This enables easy access from everywhere provided a VPN or reverse proxy is setu
 4. Clone this repo
 
 ``` bash
-curl -sL https://raw.githubusercontent.com/aaronschm/homelab/refs/heads/main/scripts/admin-setup.sh?token=GHSAT0AAAAAAD432SHWLWMJRZ3OCPOZ3A6M2QI5TFQ | bash
+curl -sL https://raw.githubusercontent.com/aaronschm/homelab/refs/heads/main/scripts/admin-setup.sh | bash
 ```
