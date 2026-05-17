@@ -1,4 +1,4 @@
-# Homelab | Why I build it.
+# **Homelab** | Why I build it.
 
 This project was made, to learn kubernetes and enhance my Homeserver Setup.
 
@@ -27,5 +27,33 @@ A managing LXC will play the role of admin and give K3s its orders.
 Three VLANs allow the added Security of keeping K3s away from Internet access, Traefik sits in a DMZ and talks to the internet, then routes securely to K3s.
 An updae LXC will fetch and distribute every needed packet to K3s and its Containers.
 
-## Setup
-To set up the Admin LXC, run the [bootstrap script](scripts/admin-setup.sh) inside the LXC after creating it.
+## What I added and why.
+
+- `docs/network-setup.md`: documents the VLAN layout and firewall rules that keep the cluster isolated while allowing the minimum traffic needed for package updates and Traefik ingress.
+- `docs/admin-setup.md` and `scripts/admin-setup.sh`: explains the Admin LXC purpose and how it replaces local workstation dependencies with a centralized management container.
+- `docs/update-server-setup.md` and `scripts/update-server-setup.sh`: create the apt-cacher-ng Update Server, which allows cluster nodes in VLAN 25 to fetch packages and bootstrap scripts without direct internet access.
+- `docs/k3s-setup.md`: describes K3s control plane and agent requirements along with the proxy command to bootstrap nodes through the update server.
+Following the setup order will result in less effort needed.
+- `LICENSE`: A professional MIT license for the repository.
+
+## Setup order.
+
+1. **Admin LXC**
+   - Create the Admin container first.
+   - Follow the Setup described in`docs/admin-setup.md` inside the LXC.
+   - This gives you the management environment, SSH key, and repo access required for later steps.
+
+2. **Update Server**
+   - Create the Update Server container next.
+   - Run the Setup procedure from `docs/update-server-setup.md` inside the LXC.
+   - This installs apt-cacher-ng and fetches the client bootstrap assets for the cluster.
+
+3. **Load Balancer**
+   - Deploy the Nginx load balancer that will front the cluster.
+   - Follow the Setup descriped in `docs/load-balancer-setup.md` inside the LXC.
+4. **K3s VMs**
+   - Create the control plane and agent VMs.
+   - Use the proxy configuration in `docs/k3s-setup.md` to point them at the Update Server for package and script access.
+   - Make sure VLAN 25 nodes can reach the Update Server on port `3142`, and the load balancer on port `6443`.
+
+5. **Work in progress**
