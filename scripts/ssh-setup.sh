@@ -1,6 +1,7 @@
 #!/bin/bash
 # SSH Hardening Script for LXC containers
 
+set -e
 echo "=== SSH Hardening Script ==="
 echo "Port: 2022"
 echo "PasswordAuthentication: no"
