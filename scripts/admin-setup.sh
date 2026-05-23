@@ -42,6 +42,8 @@ EOF
 # Static entries
 add_ssh_host "update-server" "$UPDATE_SERVER_IP"
 add_ssh_host "load-balancer" "$LOAD_BALANCER_IP"
+add_ssh_host "postgres" "$POSTGRES_IP"
+add_ssh_host "minio" "$MINIO_IP"
 
 # Dynamic entries for Clusters
 i=1
