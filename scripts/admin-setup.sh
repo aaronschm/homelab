@@ -18,7 +18,6 @@ if [ -f "$CONF_FILE" ]; then
     source "$CONF_FILE"
 else
     echo "cluster.conf not found! Creating template..."
-    # (Template creation logic here as per your original prompt)
 fi
 
 echo "=== Step 4: Generating SSH Config ==="
@@ -42,8 +41,7 @@ EOF
 # Static entries
 add_ssh_host "update-server" "$UPDATE_SERVER_IP"
 add_ssh_host "load-balancer" "$LOAD_BALANCER_IP"
-add_ssh_host "postgres" "$POSTGRES_IP"
-add_ssh_host "minio" "$MINIO_IP"
+
 
 # Dynamic entries for Clusters
 i=1

@@ -13,8 +13,7 @@ read -p "Enter the Admin LXC IP Address: " ADMIN_IP
 STATIC_DIR="/var/cache/apt-cacher-ng/_static"
 mkdir -p "$STATIC_DIR"
 
-# Modernized file list including LB and Storage
-FILES=("admin_lxc.pub" "ssh-setup.sh" "cluster.conf" "k3s-control-plane-setup.sh" "k3s-agent-setup.sh" "load-balancer-setup.sh" "db-setup.sh" "minio-setup.sh")
+FILES=("admin_lxc.pub" "ssh-setup.sh" "cluster.conf" "k3s-control-plane-setup.sh" "k3s-agent-setup.sh" "load-balancer-setup.sh" "dmz-reverse-proxy-setup.sh" "registry-setup.sh" "db-setup.sh" "minio-setup.sh")
 
 for FILE in "${FILES[@]}"; do
     echo "Fetching $FILE..."
@@ -58,9 +57,10 @@ echo ""
 echo " 3. AGENT:"
 echo " echo 'Acquire::http::Proxy \"http://$IP_ADDR:3142\";' > /etc/apt/apt.conf.d/00proxy && export http_proxy=http://$IP_ADDR:3142 && apt update && apt install curl -y && curl -sL http://$IP_ADDR:3142/static/k3s-agent-setup.sh | bash"
 echo ""
-echo " 4. DATABASE:"
-echo " echo 'Acquire::http::Proxy \"http://$IP_ADDR:3142\";' > /etc/apt/apt.conf.d/00proxy && export http_proxy=http://$IP_ADDR:3142 && apt update && apt install curl -y && curl -sL http://$IP_ADDR:3142/static/db-setup.sh | bash"
+echo " 4. DMZ REVERSE PROXY:"
+echo " apt update && apt install curl -y && curl -sL http://$IP_ADDR:3142/static/dmz-reverse-proxy-setup.sh | UPDATE_SERVER_IP=$IP_ADDR bash"
 echo ""
-echo " 5. MINIO:"
-echo " echo 'Acquire::http::Proxy \"http://$IP_ADDR:3142\";' > /etc/apt/apt.conf.d/00proxy && export http_proxy=http://$IP_ADDR:3142 && apt update && apt install curl -y && curl -sL http://$IP_ADDR:3142/static/minio-setup.sh | bash"
+echo " 5. CONTAINER REGISTRY:"
+echo " apt update && apt install curl -y && curl -sL http://$IP_ADDR:3142/static/registry-setup.sh | bash"
+echo ""
 echo "======================================================================"

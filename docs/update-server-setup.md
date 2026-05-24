@@ -5,6 +5,18 @@ To enable VLAN 25 to reach updates, the cacher-ng Server caches requested packag
 Thus beeing an extended arm.
 This server is not a full mirror; it caches only requested packages, saving storage.
 
+If your cluster nodes cannot reach the public internet directly, the Update Server should also stage any self-hosted installer binaries that are needed during bootstrap (for example, the MinIO binary used by your internal service deployment scripts). If VLAN 25 can reach the internet through a controlled proxy, that binary can be downloaded on demand instead.
+
+## **Related Services**
+
+The Update Server also stages bootstrap scripts for other infrastructure components:
+- Container Registry LXC setup script
+- Load Balancer setup script
+- K3s Control Plane and Agent setup scripts
+- DMZ Reverse Proxy setup script
+
+See `docs/registry-setup.md` for details on the Container Registry LXC, which is deployed after the Update Server.
+
 ## **Requirements**
 
 - Debian 13
