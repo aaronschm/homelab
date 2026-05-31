@@ -75,7 +75,9 @@ These ports must remain open within VLAN 25 for cluster operation. They typicall
 | Admin LXC | LXC | 20 – Management | `10.10.20.20` |
 | Load Balancer | LXC | 20 – Management | `10.10.20.21` |
 | Update Server | LXC | 20 – Management | `10.10.20.100` |
+| Registry Server | LXC | 20 – Management | `10.10.20.101` |
 | DMZ Reverse Proxy (Traefik) | LXC | 24 – DMZ | `10.10.24.10` |
+| Gameserver (Pelican Wings) | VM | 24 – DMZ | `10.10.24.20` |
 | K3s Control Plane | VM | 25 – Cluster | `10.10.25.11` |
 | K3s Agent | VM | 25 – Cluster | `10.10.25.101` |
 

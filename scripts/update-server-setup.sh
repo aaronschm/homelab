@@ -13,7 +13,7 @@ read -p "Enter the Admin LXC IP Address: " ADMIN_IP
 STATIC_DIR="/var/cache/apt-cacher-ng/_static"
 mkdir -p "$STATIC_DIR"
 
-FILES=("admin_lxc.pub" "ssh-setup.sh" "cluster.conf" "k3s-control-plane-setup.sh" "k3s-agent-setup.sh" "load-balancer-setup.sh" "dmz-reverse-proxy-setup.sh" "registry-setup.sh" "db-setup.sh" "minio-setup.sh")
+FILES=("admin_lxc.pub" "ssh-setup.sh" "cluster.conf" "k3s-control-plane-setup.sh" "k3s-agent-setup.sh" "load-balancer-setup.sh" "dmz-reverse-proxy-setup.sh" "registry-setup.sh" "db-setup.sh" "minio-setup.sh" "gameserver-setup.sh")
 
 for FILE in "${FILES[@]}"; do
     echo "Fetching $FILE..."
@@ -62,5 +62,8 @@ echo " apt update && apt install curl -y && curl -sL http://$IP_ADDR:3142/static
 echo ""
 echo " 5. CONTAINER REGISTRY:"
 echo " apt update && apt install curl -y && curl -sL http://$IP_ADDR:3142/static/registry-setup.sh | bash"
+echo ""
+echo " 6. GAMESERVER (WINGS):"
+echo " apt update && apt install curl -y && curl -sL http://$IP_ADDR:3142/static/gameserver-setup.sh | UPDATE_SERVER_IP=$IP_ADDR bash"
 echo ""
 echo "======================================================================"
