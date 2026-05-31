@@ -20,7 +20,6 @@ K3s-based homelab cluster with VLAN isolation, GitOps via Argo CD, and fully scr
 | Registry Server | LXC | 20 – Management | `10.10.20.101` |
 | DMZ Reverse Proxy (Traefik) | LXC | 24 – DMZ | `10.10.24.10` |
 | Gameserver (Pelican Wing) | VM | 24 – DMZ | `10.10.24.20` |
-| Gameserver (Wings) | VM | 24 – DMZ | `10.10.24.20` |
 | K3s Control Plane | VM | 25 – Cluster | `10.10.25.11` |
 | K3s Agent | VM | 25 – Cluster | `10.10.25.101` |
 

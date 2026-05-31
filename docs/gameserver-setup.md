@@ -25,7 +25,7 @@ Wings uses Docker to isolate each game server instance and includes a built-in S
 | 2022 | TCP | SSH (management) |
 | 2023 | TCP | Wings SFTP (file access via panel) |
 | 443 | TCP | Wings daemon API (panel ↔ Wings) |
-| 25565–25665 | TCP/UDP | Game server ports (adjust as needed) |
+| 20000 - 20999 | TCP/UDP | Game server ports (adjust as needed) |
 
 ## **Installation**
 
