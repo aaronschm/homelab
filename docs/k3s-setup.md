@@ -22,8 +22,8 @@ The agent is the workhorse where containers run.
 
 ### Agent 
 - Debian 13
-- 6 vCores
-- 12 GB RAM
+- 5 vCores
+- 16 GB RAM
 - 50 GB Disk
 
 ## **Installation**
