@@ -68,6 +68,19 @@ These ports must remain open within VLAN 25 for cluster operation. They typicall
 - `8472` (UDP): Flannel VXLAN / pod networking
 - `10250`: Kubelet API
 
+## **IP Assignments**
+
+| Host | Type | VLAN | IP Address |
+| :--- | :--- | :--- | :--- |
+| Admin LXC | LXC | 20 – Management | `10.10.20.20` |
+| Load Balancer | LXC | 20 – Management | `10.10.20.21` |
+| Update Server | LXC | 20 – Management | `10.10.20.100` |
+| DMZ Reverse Proxy (Traefik) | LXC | 24 – DMZ | `10.10.24.10` |
+| K3s Control Plane | VM | 25 – Cluster | `10.10.25.11` |
+| K3s Agent | VM | 25 – Cluster | `10.10.25.101` |
+
+> IPs are also defined in [`cluster.conf`](../cluster.conf) and must match before running any scripts.
+
 ## **Implementation Notes**
 
 - Create VLANs on the router/firewall first.

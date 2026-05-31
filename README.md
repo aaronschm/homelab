@@ -10,6 +10,19 @@ K3s-based homelab cluster with VLAN isolation, GitOps via Argo CD, and fully scr
 | 24 | DMZ | `10.10.24.0/24` | Traefik reverse proxy |
 | 25 | Cluster | `10.10.25.0/24` | K3s nodes (no internet access) |
 
+## IP Assignments
+
+| Host | Type | VLAN | IP |
+|------|------|------|----|
+| Admin LXC | LXC | 20 – Management | `10.10.20.20` |
+| Load Balancer | LXC | 20 – Management | `10.10.20.21` |
+| Update Server | LXC | 20 – Management | `10.10.20.100` |
+| DMZ Reverse Proxy (Traefik) | LXC | 24 – DMZ | `10.10.24.10` |
+| K3s Control Plane | VM | 25 – Cluster | `10.10.25.11` |
+| K3s Agent | VM | 25 – Cluster | `10.10.25.101` |
+
+> All IPs are also defined in [`cluster.conf`](cluster.conf). Update it before running any scripts.
+
 ## Setup Order
 
 Follow this order — each step depends on the previous ones.
