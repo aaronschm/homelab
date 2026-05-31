@@ -15,9 +15,9 @@ This registry also acts as a single point of control for which images are availa
 ## **Requirements**
 
 - Debian 13
-- 2 vCores
-- 2 GB RAM
-- 100 GB Disk (adjust based on the images you plan to store)
+- 1 vCores
+- 1 GB RAM
+- 50 GB Disk (adjust based on the images size and amount)
 
 ## **Installation**
 
