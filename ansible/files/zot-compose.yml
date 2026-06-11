@@ -1,0 +1,14 @@
+services:
+  zot:
+    image: ghcr.io/project-zot/zot-linux-amd64:latest
+    container_name: zot
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - /etc/zot/config.json:/etc/zot/config.json:ro
+      - zot-data:/var/lib/zot
+    command: ["serve", "/etc/zot/config.json"]
+
+volumes:
+  zot-data:

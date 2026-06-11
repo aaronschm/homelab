@@ -1,0 +1,65 @@
+---
+# Deploy Zot as a multi-upstream pull-through registry mirror on the Registry
+# LXC (10.10.20.101). This is the modern replacement for the old apt-cacher
+# "update server" and the plain `registry:2` from scripts/registry-setup.sh.
+#
+# Zot's sync extension proxies docker.io, ghcr.io, registry.k8s.io, gcr.io and
+# quay.io on demand, so the dark Cluster VLAN can pull images via one endpoint.
+#
+# Usage (run after `make infra` has created the LXC):
+#   ansible-playbook -i inventory.ini registry-zot.yml
+#
+# Requires SSH access to the registry LXC. Override the connection in inventory
+# or with -e if needed.
+
+- name: Deploy Zot pull-through registry mirror
+  hosts: registry
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Install Docker engine
+      ansible.builtin.shell: |
+        set -e
+        if ! command -v docker >/dev/null 2>&1; then
+          curl -fsSL https://get.docker.com | sh
+        fi
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Ensure Docker is enabled and running
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Create Zot config directory
+      ansible.builtin.file:
+        path: /etc/zot
+        state: directory
+        mode: "0755"
+
+    - name: Install Zot config
+      ansible.builtin.copy:
+        src: files/zot-config.json
+        dest: /etc/zot/config.json
+        mode: "0644"
+      notify: Restart Zot
+
+    - name: Install Zot compose file
+      ansible.builtin.copy:
+        src: files/zot-compose.yml
+        dest: /etc/zot/compose.yml
+        mode: "0644"
+
+    - name: Start Zot
+      ansible.builtin.command:
+        cmd: docker compose -f /etc/zot/compose.yml up -d
+      register: zot_up
+      changed_when: "'Started' in zot_up.stderr or 'Created' in zot_up.stderr"
+
+  handlers:
+    - name: Restart Zot
+      ansible.builtin.command:
+        cmd: docker compose -f /etc/zot/compose.yml restart
