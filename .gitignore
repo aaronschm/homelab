@@ -1,1 +1,25 @@
+# Secrets / env
 .env
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Talos / Kubernetes credentials
+talosconfig
+kubeconfig
+*.kubeconfig
+
+# Ansible secrets (UDM creds, vault)
+ansible/group_vars/all.yml
+*.vault.yml
