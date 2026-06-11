@@ -1,0 +1,48 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored.
+# Real secrets must NEVER be committed (see ../../../.gitignore).
+
+pve_endpoint  = "https://10.10.20.2:8006/"
+pve_api_token = "terraform@pve!tf=00000000-0000-0000-0000-000000000000"
+pve_insecure  = true
+pve_node      = "pve"
+
+ct_storage    = "local-lvm"
+vm_storage    = "local-lvm"
+image_storage = "local"
+network_bridge = "vmbr0"
+
+ssh_public_keys = [
+  "ssh-ed25519 AAAA... you@admin",
+]
+
+# Build a schematic (add siderolabs/qemu-guest-agent) at https://factory.talos.dev
+talos_version   = "v1.9.5"
+talos_image_url = "https://factory.talos.dev/image/REPLACE_SCHEMATIC_ID/v1.9.5/nocloud-amd64.raw.gz"
+
+# Debian 13 LXC template already present on the node (pveam download ...).
+lxc_template = "local:vztmpl/debian-13-standard_13.0-1_amd64.tar.zst"
+lxc_password = "change-me-then-rotate"
+
+controlplanes = {
+  cp-1 = { vmid = 2011, ip = "10.10.25.11/24", cores = 2, memory = 6144, disk_gb = 50 }
+}
+
+workers = {
+  worker-1 = { vmid = 2101, ip = "10.10.25.101/24", cores = 5, memory = 32768, disk_gb = 100 }
+}
+
+# The 6x18TB MinIO drives, by stable /dev/disk/by-id path on the PVE host.
+# These are passed through to the worker VM (see docs/proxmox-iac.md).
+minio_disks_by_id = [
+  # "/dev/disk/by-id/ata-WDC_..._1",
+  # "/dev/disk/by-id/ata-WDC_..._2",
+  # "/dev/disk/by-id/ata-WDC_..._3",
+  # "/dev/disk/by-id/ata-WDC_..._4",
+  # "/dev/disk/by-id/ata-WDC_..._5",
+  # "/dev/disk/by-id/ata-WDC_..._6",
+]
+
+lxcs = {
+  registry = { vmid = 1101, ip = "10.10.20.101/24", vlan_key = "mgmt", cores = 1, memory = 2048, disk_gb = 50 }
+  traefik  = { vmid = 1024, ip = "10.10.24.10/24", vlan_key = "dmz", cores = 1, memory = 1024, disk_gb = 8 }
+}

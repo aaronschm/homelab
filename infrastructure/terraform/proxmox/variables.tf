@@ -1,0 +1,169 @@
+###############################################################################
+# Proxmox connection
+###############################################################################
+
+variable "pve_endpoint" {
+  description = "Proxmox VE API endpoint, e.g. https://pve.lan:8006/"
+  type        = string
+}
+
+variable "pve_api_token" {
+  description = "Proxmox API token: USER@REALM!TOKENID=UUID"
+  type        = string
+  sensitive   = true
+}
+
+variable "pve_insecure" {
+  description = "Skip TLS verification (true for self-signed PVE certs)."
+  type        = bool
+  default     = true
+}
+
+variable "pve_ssh_username" {
+  description = "SSH user on the Proxmox node (for snippet/image uploads)."
+  type        = string
+  default     = "root"
+}
+
+variable "pve_node" {
+  description = "Name of the Proxmox node to deploy onto (e.g. pve)."
+  type        = string
+}
+
+###############################################################################
+# Storage / network
+###############################################################################
+
+variable "ct_storage" {
+  description = "Datastore for LXC rootfs (e.g. local-lvm)."
+  type        = string
+  default     = "local-lvm"
+}
+
+variable "vm_storage" {
+  description = "Datastore for VM disks (e.g. local-lvm)."
+  type        = string
+  default     = "local-lvm"
+}
+
+variable "image_storage" {
+  description = "Datastore that holds ISOs/images and snippets (e.g. local)."
+  type        = string
+  default     = "local"
+}
+
+variable "network_bridge" {
+  description = "Linux bridge for all guests (e.g. vmbr0). Must be VLAN-aware."
+  type        = string
+  default     = "vmbr0"
+}
+
+# VLAN plan mirrors README.md / docs/network-setup.md
+variable "vlans" {
+  description = "VLAN id -> gateway map."
+  type        = map(string)
+  default = {
+    mgmt    = "10.10.20.1" # VLAN 20
+    dmz     = "10.10.24.1" # VLAN 24
+    cluster = "10.10.25.1" # VLAN 25
+  }
+}
+
+variable "ssh_public_keys" {
+  description = "SSH public keys injected into LXCs and cloud-init VMs."
+  type        = list(string)
+  default     = []
+}
+
+###############################################################################
+# Talos VM image (from https://factory.talos.dev schematic)
+###############################################################################
+
+variable "talos_version" {
+  description = "Talos Linux version, e.g. v1.9.5"
+  type        = string
+  default     = "v1.9.5"
+}
+
+variable "talos_image_url" {
+  description = <<-EOT
+    URL to the Talos nocloud raw image for your factory schematic, e.g.
+    https://factory.talos.dev/image/<SCHEMATIC_ID>/<VERSION>/nocloud-amd64.raw.gz
+    Build a schematic (add qemu-guest-agent) at https://factory.talos.dev.
+  EOT
+  type        = string
+}
+
+###############################################################################
+# Cluster topology
+###############################################################################
+
+variable "controlplanes" {
+  description = "Talos control-plane nodes. Key = name."
+  type = map(object({
+    vmid    = number
+    ip      = string # CIDR, e.g. 10.10.25.11/24
+    cores   = number
+    memory  = number # MiB
+    disk_gb = number
+  }))
+  default = {
+    cp-1 = { vmid = 2011, ip = "10.10.25.11/24", cores = 2, memory = 6144, disk_gb = 50 }
+  }
+}
+
+variable "workers" {
+  description = "Talos worker nodes. Key = name."
+  type = map(object({
+    vmid    = number
+    ip      = string
+    cores   = number
+    memory  = number
+    disk_gb = number
+  }))
+  # Worker co-locates MinIO (6x18TB, single-node multi-drive). MinIO + Longhorn
+  # + workloads share this RAM. See docs/proxmox-iac.md for the sizing rationale:
+  # ~24-32 GiB is comfortable for ~100 TiB of MinIO; 16 GiB is the practical
+  # floor with reduced caching. Tune to your host's total RAM.
+  default = {
+    worker-1 = { vmid = 2101, ip = "10.10.25.101/24", cores = 5, memory = 32768, disk_gb = 100 }
+  }
+}
+
+# Physical disks (the 6x18TB) passed through to the worker for MinIO.
+# bpg cannot create raw-device passthrough cleanly, so these are attached at the
+# Proxmox level (see docs/proxmox-iac.md) and mounted by Talos via machine.disks.
+# Listed here for documentation / future automation only.
+variable "minio_disks_by_id" {
+  description = "List of /dev/disk/by-id/* paths for the MinIO drives on the PVE host."
+  type        = list(string)
+  default     = []
+}
+
+variable "lxcs" {
+  description = "LXC containers to provision. Key = hostname."
+  type = map(object({
+    vmid     = number
+    ip       = string # CIDR
+    vlan_key = string # key into var.vlans
+    cores    = number
+    memory   = number # MiB
+    disk_gb  = number
+  }))
+  default = {
+    registry = { vmid = 1101, ip = "10.10.20.101/24", vlan_key = "mgmt", cores = 1, memory = 2048, disk_gb = 50 }
+    traefik  = { vmid = 1024, ip = "10.10.24.10/24", vlan_key = "dmz", cores = 1, memory = 1024, disk_gb = 8 }
+  }
+}
+
+variable "lxc_template" {
+  description = "LXC OS template volume id (e.g. local:vztmpl/debian-13-standard_*.tar.zst)."
+  type        = string
+}
+
+variable "lxc_password" {
+  description = "Initial root password for LXCs (use SSH keys; rotate after)."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
