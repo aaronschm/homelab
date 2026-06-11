@@ -1,0 +1,105 @@
+---
+# Configure inter-VLAN firewall on a UDM Pro running UniFi Network 9.0+
+# (Zone-Based Firewall) via the v2 API, authenticating with an API key.
+#
+# UniFi Network 10.x replaced the classic rule list with the Zone-Based
+# Firewall. Policies reference *zones* (groups of networks/VLANs), not raw
+# subnets, and zone IDs are specific to your controller. This playbook therefore
+# runs in two modes:
+#
+#   1. DISCOVER (default, read-only): dumps your zones + existing policies so you
+#      can see the exact schema/IDs on your box.
+#        ansible-playbook -i inventory.ini udm-firewall.yml
+#
+#   2. APPLY: create the policies defined in vars/firewall-rules.yml.
+#        ansible-playbook -i inventory.ini udm-firewall.yml -e udm_apply=true
+#
+# Secrets: put udm_api_key in group_vars/all.yml (git-ignored) or pass with -e.
+
+- name: Configure UDM Pro Zone-Based Firewall
+  hosts: udm
+  gather_facts: false
+  vars:
+    udm_apply: false
+    api_base: "{{ udm_host }}/proxy/network/v2/api/site/{{ udm_site }}"
+  vars_files:
+    - vars/firewall-rules.yml
+
+  tasks:
+    - name: Verify the API key works (official integration API)
+      ansible.builtin.uri:
+        url: "{{ udm_host }}/proxy/network/integration/v1/sites"
+        method: GET
+        headers:
+          X-API-KEY: "{{ udm_api_key }}"
+          Accept: "application/json"
+        validate_certs: "{{ udm_verify_ssl }}"
+        status_code: [200]
+      register: api_check
+
+    - name: Fetch firewall zones
+      ansible.builtin.uri:
+        url: "{{ api_base }}/firewall/zone"
+        method: GET
+        headers:
+          X-API-KEY: "{{ udm_api_key }}"
+          Accept: "application/json"
+        validate_certs: "{{ udm_verify_ssl }}"
+        status_code: [200]
+      register: zones
+
+    - name: Fetch existing firewall policies
+      ansible.builtin.uri:
+        url: "{{ api_base }}/firewall-policies"
+        method: GET
+        headers:
+          X-API-KEY: "{{ udm_api_key }}"
+          Accept: "application/json"
+        validate_certs: "{{ udm_verify_ssl }}"
+        status_code: [200]
+      register: policies
+
+    - name: Show discovered zones (map names -> _id for vars/firewall-rules.yml)
+      ansible.builtin.debug:
+        msg: "{{ zones.json | default(zones.content) }}"
+
+    - name: Show existing policies
+      ansible.builtin.debug:
+        msg: "{{ policies.json | default(policies.content) }}"
+
+    - name: Stop here unless apply mode is requested
+      ansible.builtin.meta: end_play
+      when: not (udm_apply | bool)
+
+    # --- APPLY MODE -------------------------------------------------------
+    # NOTE: confirm the policy body matches your controller's schema using the
+    # discovery output above before relying on this in production.
+    - name: Create missing zone-based firewall policies
+      ansible.builtin.uri:
+        url: "{{ api_base }}/firewall-policies"
+        method: POST
+        headers:
+          X-API-KEY: "{{ udm_api_key }}"
+          Accept: "application/json"
+        body_format: json
+        body:
+          name: "{{ item.name }}"
+          enabled: true
+          action: "ALLOW"
+          protocol: "{{ item.proto | upper }}"
+          source:
+            zone_id: "{{ item.src_zone_id }}"
+          destination:
+            zone_id: "{{ item.dst_zone_id }}"
+            matching_target: "IP"
+            ips: "{{ item.dst_ips | default([]) }}"
+            port_matching_type: "SPECIFIC"
+            ports: "{{ item.ports }}"
+        validate_certs: "{{ udm_verify_ssl }}"
+        status_code: [200, 201]
+      loop: "{{ firewall_rules }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: >-
+        item.name not in
+        (policies.json.data | default(policies.json | default([])) | map(attribute='name') | list)

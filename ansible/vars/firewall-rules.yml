@@ -1,0 +1,57 @@
+# Inter-VLAN firewall policies for the homelab IaC flow, in Zone-Based Firewall
+# terms (UniFi Network 9.0+ / your 10.4.57).
+#
+# IMPORTANT: zone_id values are specific to YOUR controller. Run the playbook in
+# discovery mode first (no -e udm_apply) to print your zones, then paste the
+# matching "_id" values below. Typical zones: Internal, External, DMZ, Gateway,
+# plus any custom zone you create per VLAN.
+#
+# Reference of the VLAN layout (from docs/network-setup.md):
+vlans:
+  workstation: { id: 10, subnet: "10.10.10.0/24" }
+  mgmt:        { id: 20, subnet: "10.10.20.0/24" }
+  dmz:         { id: 24, subnet: "10.10.24.0/24" }
+  cluster:     { id: 25, subnet: "10.10.25.0/24" }
+
+# Fill these in from discovery output (zone "_id" strings):
+zone_ids:
+  workstation: "REPLACE_ME"
+  mgmt:        "REPLACE_ME"
+  dmz:         "REPLACE_ME"
+  cluster:     "REPLACE_ME"
+
+firewall_rules:
+  - name: "PC to Proxmox API"
+    src_zone_id: "{{ zone_ids.workstation }}"
+    dst_zone_id: "{{ zone_ids.mgmt }}"
+    dst_ips: ["10.10.20.0/24"]
+    ports: [8006]
+    proto: tcp
+
+  - name: "PC to Talos API"
+    src_zone_id: "{{ zone_ids.workstation }}"
+    dst_zone_id: "{{ zone_ids.cluster }}"
+    dst_ips: ["10.10.25.0/24"]
+    ports: [50000]
+    proto: tcp
+
+  - name: "PC to Kubernetes API"
+    src_zone_id: "{{ zone_ids.workstation }}"
+    dst_zone_id: "{{ zone_ids.cluster }}"
+    dst_ips: ["10.10.25.11"]
+    ports: [6443]
+    proto: tcp
+
+  - name: "Cluster to Registry mirror"
+    src_zone_id: "{{ zone_ids.cluster }}"
+    dst_zone_id: "{{ zone_ids.mgmt }}"
+    dst_ips: ["10.10.20.101"]
+    ports: [5000]
+    proto: tcp
+
+  - name: "Traefik to Cluster ingress"
+    src_zone_id: "{{ zone_ids.dmz }}"
+    dst_zone_id: "{{ zone_ids.cluster }}"
+    dst_ips: ["10.10.25.0/24"]
+    ports: [80, 443]
+    proto: tcp

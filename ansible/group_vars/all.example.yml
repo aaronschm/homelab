@@ -1,0 +1,12 @@
+# Copy to ansible/group_vars/all.yml and fill in. all.yml is git-ignored.
+# Best practice: ansible-vault encrypt the api key, or pass it at runtime with
+#   ansible-playbook ... -e "udm_api_key=$UDM_API_KEY"
+
+udm_host: "https://10.10.20.1"     # UDM Pro IP on the mgmt VLAN
+udm_site: "default"
+
+# UniFi Network 9.0+ API key (see ansible/README.md for how to create one).
+# Sent as the X-API-KEY header. NOT a username/password.
+udm_api_key: "CHANGE_ME"
+
+udm_verify_ssl: false              # UDM uses a self-signed cert by default
