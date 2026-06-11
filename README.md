@@ -44,16 +44,31 @@ Follow this order — each step depends on the previous ones.
 ## Repository Structure
 
 ```
-├── ansible/              # Ansible playbooks (WIP)
+├── infrastructure/       # API-driven IaC (see docs/proxmox-iac.md)
+│   ├── terraform/
+│   │   ├── proxmox/      # bpg/proxmox: Talos VMs + LXC containers
+│   │   └── talos/        # siderolabs/talos: cluster bootstrap + kubeconfig
+│   └── packer/debian/    # cloud-init Debian template for utility VMs
+├── ansible/              # UDM Pro firewall automation (UniFi API)
 ├── docs/                 # Setup guides for each component
 ├── kubernetes/
+│   ├── bootstrap/        # Argo CD app-of-apps root
 │   ├── platform/         # Cluster infrastructure (Longhorn, Argo CD)
 │   ├── common/           # Shared resources (namespaces, sealed secrets)
 │   └── apps/             # Application manifests
-├── scripts/              # Bootstrap scripts for LXCs and VMs
-└── cluster.conf          # IP addresses and K3s token
+├── scripts/              # Legacy in-guest bootstrap scripts (being retired)
+└── cluster.conf          # IP addresses (legacy/traditional method)
 ```
+
+> **Provisioning is moving from manual scripts to declarative IaC.** The
+> Proxmox API (Terraform `bpg/proxmox`) creates the VMs and LXCs, and Talos
+> Linux bootstraps the Kubernetes cluster. See
+> [`docs/proxmox-iac.md`](docs/proxmox-iac.md). The `scripts/` flow below is the
+> legacy/traditional path, kept during the transition.
 
 ## Configuration
 
-All IPs and the K3s token are defined in [`cluster.conf`](cluster.conf). Update it before running any scripts.
+For the **legacy** scripted flow, IPs are defined in [`cluster.conf`](cluster.conf);
+generate the K3s token at runtime (never commit it). For the **IaC** flow,
+configuration lives in `infrastructure/terraform/*/terraform.tfvars` (git-ignored;
+copy the `.example` files).
