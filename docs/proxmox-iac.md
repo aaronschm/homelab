@@ -157,10 +157,19 @@ boots the LXCs/VMs in order → Talos rejoins → Argo CD reconciles to the repo
 
 `docs/network-setup.md` puts VLAN 25 on a **dark VLAN with no internet**. Talos
 and Kubernetes still need to pull container images (k8s components, your apps).
-The **Registry LXC (`10.10.20.101:5000`) must act as a pull-through mirror**, and
-Talos is pointed at it via `registry_mirror_endpoint` (a `machine.registries.mirrors`
-patch covering docker.io, ghcr.io, registry.k8s.io, gcr.io, quay.io). This is the
-modern replacement for the old apt-cacher "update server".
+The **Registry LXC (`10.10.20.101:5000`) acts as a pull-through mirror** running
+**Zot** (`ansible/registry-zot.yml`), and Talos is pointed at it via
+`registry_mirror_endpoint` (a `machine.registries.mirrors` patch covering
+docker.io, ghcr.io, registry.k8s.io, gcr.io, quay.io). This replaces the old
+apt-cacher "update server".
+
+> **Why Zot, not `registry:2`:** the legacy `scripts/registry-setup.sh` ran a
+> plain `registry:2`, which can pull-through **only one** upstream. Zot's `sync`
+> extension proxies **all five** upstreams on demand from a single endpoint.
+> Talos maps each registry name to the same Zot URL; Zot resolves the upstream
+> per request. Deploy with `ansible-playbook -i inventory.ini registry-zot.yml`
+> after `make infra`. (Alternatives considered: Harbor — heavier; multiple
+> `registry:2` instances — more moving parts.)
 
 Required firewall additions — **automated via Ansible against the UDM Pro**
 (`ansible/udm-firewall.yml`, rules in `ansible/vars/firewall-rules.yml`). Run it
