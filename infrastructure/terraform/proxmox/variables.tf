@@ -53,9 +53,19 @@ variable "image_storage" {
 }
 
 variable "network_bridge" {
-  description = "Linux bridge for all guests (e.g. vmbr0). Must be VLAN-aware."
+  description = "Linux bridge for all guests (e.g. vmbr0)."
   type        = string
   default     = "vmbr0"
+}
+
+variable "enable_vlan_tagging" {
+  description = <<-EOT
+    Tag guest NICs with the VLAN ids in var.vlans. Requires vmbr0 to be
+    VLAN-aware AND the UDM uplink port to trunk VLANs 20/24/25. Set false to
+    deploy everything untagged on the bridge's native VLAN during transition.
+  EOT
+  type        = bool
+  default     = true
 }
 
 # VLAN plan mirrors README.md / docs/network-setup.md

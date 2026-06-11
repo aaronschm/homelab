@@ -1,8 +1,16 @@
 locals {
-  vlan_id = {
+  vlan_tag = {
     mgmt    = 20
     dmz     = 24
     cluster = 25
+  }
+
+  # When the bridge is NOT VLAN-aware, emit null (untagged). Enable tagging only
+  # after making vmbr0 VLAN-aware and trunking the VLANs on the UDM uplink.
+  vlan_id = var.enable_vlan_tagging ? local.vlan_tag : {
+    mgmt    = null
+    dmz     = null
+    cluster = null
   }
 }
 

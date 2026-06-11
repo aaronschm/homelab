@@ -6,20 +6,29 @@ pve_api_token = "terraform@pve!tf=00000000-0000-0000-0000-000000000000"
 pve_insecure  = true
 pve_node      = "pve"
 
-ct_storage    = "local-lvm"
-vm_storage    = "local-lvm"
-image_storage = "local"
+# Storage pools on this node:
+#   beta  = 1TB ext4 SSD -> VM disks + LXC rootfs (fast, good for etcd)
+#   local = directory storage at /var/lib/vz -> ISOs + cloud-init snippets
+#   gamma = (future) the 6 MinIO drives, passed through raw to the worker VM
+vm_storage     = "beta"
+ct_storage     = "beta"
+image_storage  = "local"
 network_bridge = "vmbr0"
 
 ssh_public_keys = [
   "ssh-ed25519 AAAA... you@admin",
 ]
 
-# Build a schematic (add siderolabs/qemu-guest-agent) at https://factory.talos.dev
+# Build a schematic (add siderolabs/qemu-guest-agent) at https://factory.talos.dev,
+# then use its NOCLOUD raw.gz download URL here.
 talos_version   = "v1.9.5"
 talos_image_url = "https://factory.talos.dev/image/REPLACE_SCHEMATIC_ID/v1.9.5/nocloud-amd64.raw.gz"
 
-# Debian 13 LXC template already present on the node (pveam download ...).
+# Debian 13 (trixie) LXC template. Download it on the node first:
+#   pveam update
+#   pveam available --section system | grep debian-13
+#   pveam download local debian-13-standard_13.<x>-1_amd64.tar.zst
+# Then the volume id is "<storage>:vztmpl/<filename>":
 lxc_template = "local:vztmpl/debian-13-standard_13.0-1_amd64.tar.zst"
 lxc_password = "change-me-then-rotate"
 
@@ -31,16 +40,11 @@ workers = {
   worker-1 = { vmid = 2101, ip = "10.10.25.101/24", cores = 5, memory = 32768, disk_gb = 100 }
 }
 
-# The 6x18TB MinIO drives, by stable /dev/disk/by-id path on the PVE host.
-# These are passed through to the worker VM (see docs/proxmox-iac.md).
-minio_disks_by_id = [
-  # "/dev/disk/by-id/ata-WDC_..._1",
-  # "/dev/disk/by-id/ata-WDC_..._2",
-  # "/dev/disk/by-id/ata-WDC_..._3",
-  # "/dev/disk/by-id/ata-WDC_..._4",
-  # "/dev/disk/by-id/ata-WDC_..._5",
-  # "/dev/disk/by-id/ata-WDC_..._6",
-]
+# The 6x18TB MinIO drives are NOT installed yet. When they are, prefer RAW disk
+# passthrough to the worker VM (qm set 2101 -scsiN /dev/disk/by-id/...) over
+# wrapping each in a Proxmox 'gamma' storage pool -- avoids ZFS-on-ZFS overhead
+# and lets MinIO do its own erasure coding. See docs/proxmox-iac.md.
+minio_disks_by_id = []
 
 lxcs = {
   registry = { vmid = 1101, ip = "10.10.20.101/24", vlan_key = "mgmt", cores = 1, memory = 2048, disk_gb = 50 }
