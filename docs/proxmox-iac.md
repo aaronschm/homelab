@@ -35,6 +35,72 @@ The new flow is declarative and re-runnable:
 | Ansible `community.general.proxmox*` | Optional post-provision config only. |
 | `siderolabs/talos` | **Chosen** for declarative cluster bootstrap. |
 
+## Proxmox & network prerequisites (node `pve`)
+
+These are the host-side facts and one-time setup the IaC assumes. Current node
+(Proxmox VE 9.2.3): single uplink `nic2` → bridge `vmbr0` (`10.10.20.2/24`,
+gateway `10.10.20.1`), **not VLAN-aware**, running live LXCs 100–107.
+
+### VLAN-aware bridge (required for the 3-VLAN design)
+
+A *VLAN-aware bridge* lets you tag each VM/LXC NIC with a VLAN id on a single
+bridge (instead of creating one bridge per VLAN). Your `vmbr0` currently has
+**VLAN aware = No**, so every guest sits untagged on VLAN 20 (`10.10.20.0/24`).
+The repo's DMZ (24) and Cluster (25) VLANs won't work until both sides are set:
+
+1. **Proxmox:** Datacenter → `pve` → System → Network → select `vmbr0` → **Edit**
+   → tick **VLAN aware** → **Apply Configuration**. This is non-disruptive to
+   existing untagged guests (they stay on the native VLAN), but do it during a
+   maintenance window since it reloads networking on the only uplink.
+2. **UDM Pro:** make the switch port feeding `nic2` a **trunk** carrying VLANs
+   20/24/25 (tagged), and create the VLAN networks with gateways `10.10.24.1` /
+   `10.10.25.1` (VLAN 25 with no internet — the dark VLAN).
+
+Then keep `enable_vlan_tagging = true` (default) in `terraform.tfvars`.
+
+> **Transition option:** if you're not ready for VLANs, set
+> `enable_vlan_tagging = false` and the guests deploy untagged on `vmbr0`. The
+> dark-VLAN security model and the 10.10.24/25 IPs only apply once VLANs exist.
+
+### Storage mapping
+
+| tfvars var | Pool | Notes |
+|---|---|---|
+| `vm_storage` | **beta** | 1 TB ext4 SSD — Talos VM disks (fast for etcd). |
+| `ct_storage` | **beta** | LXC rootfs. |
+| `image_storage` | **local** | Directory storage — holds ISOs + cloud-init **snippets**. ZFS pools (alpha/beta) can't store those content types. |
+| MinIO drives | **gamma (future)** | See below — prefer raw passthrough over a Proxmox pool. |
+
+`alpha` (4 TB raidz1) is being phased out — not referenced by the IaC.
+
+### Debian 13 (trixie) LXC template — the "volume id"
+
+`lxc_template` is the **OS template tarball**, addressed as
+`<storage>:vztmpl/<filename>`. Download it on the node first:
+
+```bash
+pveam update
+pveam available --section system | grep debian-13
+pveam download local debian-13-standard_13.<x>-1_amd64.tar.zst
+```
+
+That yields e.g. `local:vztmpl/debian-13-standard_13.0-1_amd64.tar.zst` — put the
+exact filename in `terraform.tfvars`. (Trixie = Debian 13, matches your choice.)
+
+### Talos factory schematic URL
+
+Yes — it's the **image download URL**, but customized. At
+<https://factory.talos.dev> you pick system extensions (add
+**siderolabs/qemu-guest-agent** so the VM reports to Proxmox), which produces a
+**schematic ID**. Use the **nocloud** raw image URL for Proxmox VMs:
+
+```
+https://factory.talos.dev/image/<SCHEMATIC_ID>/v1.9.5/nocloud-amd64.raw.gz
+```
+
+Terraform downloads it once to `image_storage` and imports it as each VM's disk.
+You don't pre-build/patch it — Talos config is applied later by the `talos` module.
+
 ## Topology (sizing)
 
 | Role | Type | VLAN | Count | vCPU | RAM | Disk |
@@ -85,6 +151,16 @@ clusters and is unnecessary for a homelab single node.
 > reduced MinIO caching.
 
 ### Passing the 6 drives through to the worker
+
+The drives aren't installed yet — this is future work. When you add them, you
+have two choices for the **gamma** storage:
+
+- **✅ Recommended: raw disk passthrough** of each physical disk to the worker
+  VM. MinIO then does its own erasure coding across the 6 raw drives. This
+  avoids ZFS-on-ZFS write amplification and gives MinIO direct control.
+- ❌ Wrapping each disk in a Proxmox `gamma_1..gamma_6` ZFS/dir pool and handing
+  MinIO virtual disks — adds a filesystem layer under MinIO's own EC for no
+  benefit, and costs RAM/CPU. Skip unless you need Proxmox-level snapshots.
 
 bpg cannot cleanly create raw-device passthrough, so attach the physical disks
 to the worker VM at the Proxmox level (one-time), then let Talos format/mount
@@ -244,6 +320,9 @@ The only requirement is that **Argo CD can reach the Git repo it points at**:
 
 ## Decisions still open (flagged)
 
+- **VLAN-aware bridge + UDM trunk** — biggest prerequisite. `vmbr0` is currently
+  not VLAN-aware, so DMZ/Cluster VLANs don't exist yet. Enable both sides (see
+  Prerequisites) or run with `enable_vlan_tagging = false` during transition.
 - **Worker RAM vs host capacity** — confirm the host can give the worker 32 GB
   alongside the CP + LXCs (see MinIO section). Fallback 16–24 GB.
 - **UDM auth confirmed:** API key (`X-API-KEY`). ZBF policy CRUD uses the
@@ -251,7 +330,14 @@ The only requirement is that **Argo CD can reach the Git repo it points at**:
 - **Secrets manager:** SOPS+age (encrypt tfvars in git) vs ignored local tfvars
   (current default). Pick one before onboarding collaborators.
 - **Ingress:** keep DMZ Traefik LXC vs move ingress fully in-cluster.
-- **MinIO disk management:** DirectPV vs static Talos mounts + hostPath.
-- **Proxmox specifics to fill into tfvars:** node name, `vmbr` bridge (must be
-  VLAN-aware), storage pool names, LXC template volume id, Talos factory
-  schematic URL, the 6 disk `by-id` paths.
+- **MinIO disk management:** DirectPV vs static Talos mounts + hostPath (drives
+  not installed yet — deferred).
+
+## Resolved inputs (node `pve`)
+
+- **Node:** `pve`. **Bridge:** `vmbr0` (must be made VLAN-aware — see above).
+- **Storage:** `vm_storage`/`ct_storage` = `beta` (1 TB SSD); `image_storage` =
+  `local` (ISOs + snippets); `alpha` retired; `gamma` = future MinIO drives.
+- **LXC template:** Debian 13 (trixie) — `pveam download local debian-13-standard…`.
+- **Talos schematic URL:** factory.talos.dev nocloud image with qemu-guest-agent.
+- **MinIO drives:** not installed yet; raw passthrough planned (`minio_disks_by_id = []`).
