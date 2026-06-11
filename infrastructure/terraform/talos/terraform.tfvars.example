@@ -1,0 +1,19 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored.
+
+cluster_name       = "homelab"
+# Single control plane: leave cluster_vip empty (no kube-vip needed).
+cluster_vip        = ""
+kubernetes_version = "v1.32.0"
+talos_version      = "v1.9.5"
+install_disk       = "/dev/sda"
+
+# Registry LXC acting as a pull-through mirror for the dark Cluster VLAN.
+registry_mirror_endpoint = "http://10.10.20.101:5000"
+
+controlplane_nodes = {
+  cp-1 = "10.10.25.11"
+}
+
+worker_nodes = {
+  worker-1 = "10.10.25.101"
+}

@@ -1,0 +1,59 @@
+variable "cluster_name" {
+  description = "Talos/Kubernetes cluster name."
+  type        = string
+  default     = "homelab"
+}
+
+variable "cluster_vip" {
+  description = <<-EOT
+    Shared control-plane VIP (kube-vip). Leave EMPTY for a single control plane
+    (the endpoint then points directly at the control-plane IP). Only set this
+    when you scale to 3 control planes for HA.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "registry_mirror_endpoint" {
+  description = <<-EOT
+    Registry pull-through mirror reachable from the dark Cluster VLAN, e.g.
+    http://10.10.20.101:5000 (the Registry LXC). Leave EMPTY if the cluster
+    nodes have direct internet access. Required when VLAN 25 has no internet.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "kubernetes_version" {
+  description = "Kubernetes version Talos should install."
+  type        = string
+  default     = "v1.32.0"
+}
+
+variable "talos_version" {
+  description = "Talos machine config contract version, e.g. v1.9.5"
+  type        = string
+  default     = "v1.9.5"
+}
+
+variable "install_disk" {
+  description = "Disk Talos installs to inside the VM (matches scsi0)."
+  type        = string
+  default     = "/dev/sda"
+}
+
+variable "controlplane_nodes" {
+  description = "Map of control-plane node name -> IP (no CIDR)."
+  type        = map(string)
+  default = {
+    cp-1 = "10.10.25.11"
+  }
+}
+
+variable "worker_nodes" {
+  description = "Map of worker node name -> IP (no CIDR)."
+  type        = map(string)
+  default = {
+    worker-1 = "10.10.25.101"
+  }
+}
