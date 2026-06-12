@@ -5,8 +5,8 @@ variable "lxc_startup_order" {
   description = "Boot order per LXC hostname (lower starts first)."
   type        = map(number)
   default = {
-    registry = 1 # image mirror must be up before Talos nodes pull images
-    traefik  = 4
+    "20101" = 1 # registry (image mirror) must be up before Talos nodes pull images
+    "24010" = 4 # traefik DMZ reverse proxy
   }
 }
 

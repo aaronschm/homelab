@@ -60,7 +60,7 @@ variable "controlplane_nodes" {
   description = "Map of control-plane node name -> IP (no CIDR)."
   type        = map(string)
   default = {
-    cp-1 = "10.10.25.11"
+    "25011" = "10.10.25.11"
   }
 }
 
@@ -68,6 +68,6 @@ variable "worker_nodes" {
   description = "Map of worker node name -> IP (no CIDR)."
   type        = map(string)
   default = {
-    worker-1 = "10.10.25.101"
+    "25101" = "10.10.25.101"
   }
 }

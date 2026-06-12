@@ -118,7 +118,7 @@ variable "controlplanes" {
     disk_gb = number
   }))
   default = {
-    cp-1 = { vmid = 2011, ip = "10.10.25.11/24", cores = 2, memory = 6144, disk_gb = 50 }
+    "25011" = { vmid = 25011, ip = "10.10.25.11/24", cores = 2, memory = 6144, disk_gb = 50 }
   }
 }
 
@@ -136,7 +136,7 @@ variable "workers" {
   # ~24-32 GiB is comfortable for ~100 TiB of MinIO; 16 GiB is the practical
   # floor with reduced caching. Tune to your host's total RAM.
   default = {
-    worker-1 = { vmid = 2101, ip = "10.10.25.101/24", cores = 5, memory = 32768, disk_gb = 100 }
+    "25101" = { vmid = 25101, ip = "10.10.25.101/24", cores = 5, memory = 32768, disk_gb = 100 }
   }
 }
 
@@ -176,8 +176,8 @@ variable "lxcs" {
     disk_gb  = number
   }))
   default = {
-    registry = { vmid = 1101, ip = "10.10.20.101/24", vlan_key = "mgmt", cores = 1, memory = 2048, disk_gb = 50 }
-    traefik  = { vmid = 1024, ip = "10.10.24.10/24", vlan_key = "dmz", cores = 1, memory = 1024, disk_gb = 8 }
+    "20101" = { vmid = 20101, ip = "10.10.20.101/24", vlan_key = "mgmt", cores = 1, memory = 2048, disk_gb = 50 }
+    "24010" = { vmid = 24010, ip = "10.10.24.10/24", vlan_key = "dmz", cores = 1, memory = 1024, disk_gb = 8 }
   }
 }
 

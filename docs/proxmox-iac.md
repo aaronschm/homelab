@@ -173,7 +173,7 @@ controller. Raw ≈ 108 TB; usable after default EC ≈ **~72 TB**.
 | ~100 TiB (your case) | **24–32 GB** |
 | ≥ 1 PiB | 64 GB+ |
 
-So the worker is sized at **32 GB** (`workers.worker-1.memory = 32768`). That RAM
+So the worker is sized at **32 GB** (`workers."25101".memory = 32768`). That RAM
 is shared with kubelet, MinIO, and your other pods, so 32 GB is the sensible
 target; **16 GB is the practical floor** (MinIO runs but with less read caching).
 MinIO's official "production" rec of 128 GB is for high-throughput multi-node
@@ -246,10 +246,10 @@ them. List the drives in `minio_disks_by_id` (for documentation) and run, per di
 ```bash
 # On the Proxmox host — find stable names first:
 ls -l /dev/disk/by-id/   # use ata-/wwn- names, NOT /dev/sdX
-# Attach each disk to the worker VM (vmid 2101), as scsi3..scsi8 (scsi1/2 are
+# Attach each disk to the worker VM (vmid 25101), as scsi3..scsi8 (scsi1/2 are
 # the Longhorn + interim-alpha disks):
-qm set 2101 -scsi3 /dev/disk/by-id/ata-<DISK1>
-qm set 2101 -scsi4 /dev/disk/by-id/ata-<DISK2>
+qm set 25101 -scsi3 /dev/disk/by-id/ata-<DISK1>
+qm set 25101 -scsi4 /dev/disk/by-id/ata-<DISK2>
 # ... through the 6th drive
 ```
 

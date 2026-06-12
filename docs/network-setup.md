@@ -29,12 +29,15 @@ The DMZ is isolated from the Cluster VLAN through firewall rules, ensuring that 
 
 ## **IP Assignments**
 
-| Host | Type | VLAN | IP Address |
-| :--- | :--- | :--- | :--- |
-| Registry (Zot mirror) | LXC | 20 – Management | `10.10.20.101` |
-| DMZ Reverse Proxy (Traefik) | LXC | 24 – DMZ | `10.10.24.10` |
-| Talos Control Plane | VM | 25 – Cluster | `10.10.25.11` |
-| Talos Worker (+ MinIO) | VM | 25 – Cluster | `10.10.25.101` |
+| Host | Name | Type | VLAN | IP Address |
+| :--- | :--- | :--- | :--- | :--- |
+| Registry (Zot mirror) | `20101` | LXC | 20 – Management | `10.10.20.101` |
+| DMZ Reverse Proxy (Traefik) | `24010` | LXC | 24 – DMZ | `10.10.24.10` |
+| Talos Control Plane | `25011` | VM | 25 – Cluster | `10.10.25.11` |
+| Talos Worker (+ MinIO) | `25101` | VM | 25 – Cluster | `10.10.25.101` |
+
+> Guest names use a **`<vlan><ip>`** scheme: the VLAN id followed by the host
+> octet (e.g. `24010` = VLAN 24, `.10`). The Proxmox `vmid` matches the name.
 
 > These IPs are defined declaratively in `infrastructure/terraform/proxmox/terraform.tfvars`.
 

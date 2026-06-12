@@ -15,14 +15,16 @@ prerequisites, and migration notes.
 | 24 | DMZ | `10.10.24.0/24` | Traefik reverse proxy | Yes |
 | 25 | Cluster | `10.10.25.0/24` | Talos control plane + worker | No (dark) |
 
-| Host | Type | VLAN | IP |
-|------|------|------|----|
-| Registry (Zot mirror) | LXC | 20 | `10.10.20.101` |
-| DMZ Reverse Proxy (Traefik) | LXC | 24 | `10.10.24.10` |
-| Talos Control Plane | VM | 25 | `10.10.25.11` |
-| Talos Worker (+ MinIO) | VM | 25 | `10.10.25.101` |
+| Host | Name | Type | VLAN | IP |
+|------|------|------|------|----|
+| Registry (Zot mirror) | `20101` | LXC | 20 | `10.10.20.101` |
+| DMZ Reverse Proxy (Traefik) | `24010` | LXC | 24 | `10.10.24.10` |
+| Talos Control Plane | `25011` | VM | 25 | `10.10.25.11` |
+| Talos Worker (+ MinIO) | `25101` | VM | 25 | `10.10.25.101` |
 
 Topology: **1 control plane + 1 worker** (hardware-limited; not HA by choice).
+Guest names follow a **`<vlan><ip>`** scheme (e.g. `24010` = VLAN 24, host `.10`;
+`25101` = VLAN 25, host `.101`); the Proxmox `vmid` matches the name.
 See [docs/network-setup.md](docs/network-setup.md) for VLANs and firewall rules.
 
 ## Quick start (from your workstation)
