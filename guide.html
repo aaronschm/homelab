@@ -104,6 +104,8 @@
   .note { border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--panel); padding: 12px 16px; border-radius: 0 var(--radius) var(--radius) 0; margin: 16px 0; font-size: 14px; }
   .note.warn { border-left-color: var(--warn); }
   .note.ok { border-left-color: var(--accent2); }
+  ol.steps { margin: 14px 0; padding-left: 22px; }
+  ol.steps li { margin: 8px 0; line-height: 1.55; }
   details { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); margin: 10px 0; overflow: hidden; box-shadow: var(--shadow); }
   details summary { cursor: pointer; padding: 15px 18px; font-weight: 600; font-size: 15px; list-style: none; display: flex; align-items: center; justify-content: space-between; }
   details summary::-webkit-details-marker { display: none; }
@@ -173,6 +175,8 @@
     <button data-tab="bootstrap">Bootstrap</button>
     <button data-tab="services">Services</button>
     <button data-tab="start">Getting Started</button>
+    <button data-tab="recovery">Recovery</button>
+    <button data-tab="updates">Updates</button>
   </div>
 </nav>
 
@@ -315,7 +319,7 @@
         <tr><td class="mono">alpha</td><td>4 TB raidz1 (retiring)</td><td>Interim MinIO backing (1000 GB → <code>/var/mnt/alpha</code>)</td></tr>
         <tr><td class="mono">beta</td><td>1 TB SSD</td><td>VM/LXC disks + <b>Longhorn</b> data (400 GB → <code>/var/mnt/longhorn</code>)</td></tr>
         <tr><td class="mono">gamma</td><td>6×18 TB (not yet installed)</td><td>Future MinIO via raw passthrough</td></tr>
-        <tr><td class="mono">local</td><td>host disk</td><td>ISOs + cloud-init snippets</td></tr>
+        <tr><td class="mono">local</td><td>rpool (2×240 GB SSD raidz1 boot mirror)</td><td>Proxmox directory storage on the ZFS boot pool — ISOs + cloud-init snippets</td></tr>
       </tbody>
     </table>
 
@@ -324,7 +328,7 @@
       <div class="card"><span class="ico">💾</span><h4>Longhorn</h4>
         <p>Default class, <b>LUKS-encrypted</b>. Replicated block storage (1 replica on the single worker) on the beta SSD. Every pod PVC lands here — and because volumes are encrypted, every backup is ciphertext.</p></div>
       <div class="card"><span class="ico">🪣</span><h4>MinIO</h4>
-        <p>In-cluster S3 on alpha for now. Holds the <code>longhorn-backups</code> bucket; later moves to the gamma drives.</p></div>
+        <p>In-cluster S3 on alpha for now. Holds the <code>longhorn-backups</code> bucket; later moves to the gamma drives. MinIO doesn't add its own encryption — but the Longhorn blobs it stores are <b>already LUKS-encrypted</b>, so on-disk and off-site they're ciphertext.</p></div>
       <div class="card"><span class="ico">📁</span><h4>local-path</h4>
         <p>Non-default. Backs MinIO's own volume from <code>/var/mnt/alpha</code> on the worker.</p></div>
     </div>
@@ -339,7 +343,7 @@
     </div>
     <div class="note ok">Volumes are encrypted with your <code>longhorn-crypto</code> passphrase <b>before</b> they
       reach MinIO, so your friend hosts the data but can't read it. The off-site leg activates once his MinIO exists.
-      Full rebuild &amp; DR-test steps live in <code>docs/disaster-recovery.md</code>.</div>
+      Full rebuild &amp; DR-test steps are in the Recovery tab above.</div>
     <div class="note warn">Escrow your <code>longhorn-crypto</code> passphrase off-site (password manager + offline).
       Lose it and every backup — including yours — is permanently unreadable.</div>
   </section>
@@ -481,6 +485,99 @@
       <div class="body"><p>No real secrets in Git — only <code>*.example.yaml</code> templates, applied via
         <code>make secrets</code> or sealed with kubeseal. Talos PKI lives in the talos Terraform state;
         keep that out of Git and treat it as sensitive.</p></div></details>
+  </section>
+
+  <!-- RECOVERY -->
+  <section id="recovery">
+    <h2>Disaster Recovery</h2>
+    <p class="lead">The "house burned down" playbook: what's backed up where, how it stays
+       private, and how to rebuild on a new (identically specced) server.</p>
+
+    <h3>The backup <span class="accent">chain</span></h3>
+    <ol class="steps">
+      <li><b>Longhorn</b> holds every stateful volume on the <b>beta</b> SSD (1 replica — single worker).</li>
+      <li>Volumes use the <b>LUKS-encrypted</b> default StorageClass <code>longhorn-encrypted</code>, keyed by the <code>longhorn-crypto</code> secret. Encryption sits <b>below</b> the backup layer, so everything written out is ciphertext.</li>
+      <li>A RecurringJob snapshots every volume <b>every 6 h</b> (keep 8) to local MinIO bucket <code>longhorn-backups</code>.</li>
+      <li>An off-site CronJob <code>mc mirror</code>s that bucket to your <b>friend's MinIO every 3 h</b>.</li>
+    </ol>
+    <div class="note ok"><b>Why your friend can't read it:</b> privacy comes from your
+      <code>longhorn-crypto</code> passphrase, not his MinIO permissions. He hosts ciphertext only.</div>
+
+    <h3>What you must <span class="accent">escrow off-site</span></h3>
+    <p class="muted">The repo rebuilds the cluster, but these git-ignored items can't be regenerated:</p>
+    <table>
+      <thead><tr><th>Item</th><th>File</th><th>Why it's critical</th></tr></thead>
+      <tbody>
+        <tr><td><b>longhorn-crypto passphrase</b></td><td class="mono">longhorn-crypto-secret.yaml</td><td>Decrypts every backup. No passphrase = data gone forever.</td></tr>
+        <tr><td>Friend's MinIO creds</td><td class="mono">offsite-replication-secret.yaml</td><td>How you reach the off-site copy.</td></tr>
+        <tr><td>Proxmox API token</td><td class="mono">proxmox/terraform.tfvars</td><td>Rebuilds VMs/LXCs (re-issuable from the PVE UI).</td></tr>
+        <tr><td>App secrets</td><td class="mono">*-secret.yaml</td><td>MinIO root, PostgreSQL, Pelican — mostly re-settable.</td></tr>
+      </tbody>
+    </table>
+    <div class="note ok"><b>Your escrow plan:</b> Bitwarden, synced across all your devices.
+      For the home server's data to be unrecoverable, every one of your devices would have to die too —
+      a safe bet. Keep the <code>longhorn-crypto</code> passphrase there above all else.</div>
+
+    <h3>Rebuild on a <span class="accent">new server</span></h3>
+    <ol class="steps">
+      <li>Install Proxmox VE; node <code>pve</code>; recreate pools (<code>beta</code>, ISO/template dir on <code>local</code>/rpool); make <code>vmbr0</code> VLAN-aware.</li>
+      <li>Clone this repo; restore the escrowed <code>terraform.tfvars</code> and every <code>*-secret.yaml</code> — above all <code>longhorn-crypto-secret.yaml</code> with the <b>original</b> passphrase.</li>
+      <li><code>cd infrastructure &amp;&amp; make all</code> — Talos brings the cluster up; Argo CD redeploys everything.</li>
+      <li>Point Longhorn's backup target at the friend's MinIO (or <code>mc mirror</code> his bucket back into the fresh local MinIO).</li>
+      <li>Longhorn UI → <b>Backup</b> → restore each volume into its original PVC name. Argo reconciles the apps onto the restored data.</li>
+    </ol>
+    <div class="note ok"><b>Reachable without a home server?</b> Yes — the off-site copy lives at your friend's
+      independently. You only need his endpoint + creds and your passphrase, from anywhere. Nothing to do at his place
+      beyond him keeping MinIO online.</div>
+
+    <h3>Test it <span class="accent">regularly</span></h3>
+    <details open><summary>Monthly — cheap restore drill</summary>
+      <div class="body"><p>Restore the latest PostgreSQL backup to a <b>new</b> volume, mount it in a throwaway
+        pod, confirm the data reads back, then delete it. Proves passphrase + off-site copy work.</p></div></details>
+    <details><summary>Anytime — off-site readability</summary>
+      <div class="body"><p>From your PC with only the escrowed creds: <code>mc ls offsite/&lt;bucket&gt;</code>.
+        Confirms the remote copy is current and independent of the cluster.</p></div></details>
+    <details><summary>1–2×/year — full rebuild</summary>
+      <div class="body"><p>Run the rebuild steps against a spare/nested Proxmox to confirm a from-zero recovery still
+        works end-to-end, and to learn your real recovery time.</p></div></details>
+    <div class="note warn">A restore that <b>fails to decrypt</b> almost always means the
+      <code>longhorn-crypto</code> passphrase doesn't match the one used at backup time. Never rotate it while old
+      backups still exist.</div>
+  </section>
+
+  <!-- UPDATES -->
+  <section id="updates">
+    <h2>Updates</h2>
+    <p class="lead">No manual version-chasing. <b>Renovate</b> watches every dependency and opens
+       pull requests; safe ones merge themselves, risky ones wait for a one-click approval.</p>
+
+    <h3>How it <span class="accent">works</span></h3>
+    <div class="grid cols-2">
+      <div class="card"><span class="ico">🤖</span><h4>Renovate bot</h4>
+        <p>Config in <code>renovate.json</code>. Tracks Helm charts (Longhorn), container images
+           (PostgreSQL, Pelican, MinIO…), Terraform providers, GitHub Actions, plus the Talos &amp;
+           Kubernetes versions.</p></div>
+      <div class="card"><span class="ico">✅</span><h4>Auto-merge (safe)</h4>
+        <p>Patch / minor / digest bumps merge automatically once green. After merge, Argo CD syncs the
+           cluster — truly hands-off.</p></div>
+      <div class="card"><span class="ico">🙋</span><h4>Ask-first (risky)</h4>
+        <p>Major upgrades and Talos/Kubernetes bumps are held on the <b>Dependency Dashboard</b> issue —
+           a shorthand list of what changed. Tick a box to approve.</p></div>
+      <div class="card"><span class="ico">☸️</span><h4>Cluster upgrades</h4>
+        <p>Talos/k8s version PRs are labelled <code>manual-apply</code>: after merging, run
+           <code>make cluster</code> / <code>talosctl upgrade</code> — they don't apply by a git merge alone.</p></div>
+    </div>
+
+    <h3>One-time <span class="accent">setup</span></h3>
+    <details open><summary>Enable Renovate on your repo</summary>
+      <div class="body"><p>Install the <b>Renovate GitHub App</b> (or Mend) on your private repo, or run the
+        <code>renovatebot/renovate</code> container on a schedule. It reads <code>renovate.json</code>, opens the
+        Dependency Dashboard issue, and starts proposing updates. For auto-merge, allow it in your branch
+        protection (a solo repo needs no required reviews).</p></div></details>
+    <details><summary>Future: AI-summarised approvals</summary>
+      <div class="body"><p>The ask-first flow already gives a shorthand changelog. A later add-on can layer an
+        LLM that comments a plain-language "what changed / how risky" summary on each held PR — a thin action on
+        top of Renovate, not a rebuild. Not wired up yet.</p></div></details>
   </section>
 </main>
 

@@ -47,7 +47,11 @@ variable "vm_storage" {
 }
 
 variable "image_storage" {
-  description = "Datastore that holds ISOs/images and snippets (e.g. local)."
+  description = <<-EOT
+    Proxmox storage that holds ISOs/templates and cloud-init snippets. On a ZFS-root
+    host this is the directory storage 'local' (which lives on the rpool boot mirror) —
+    NOT the 'rpool' zfspool, which can't hold ISO/vztmpl/snippet content.
+  EOT
   type        = string
   default     = "local"
 }

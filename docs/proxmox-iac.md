@@ -263,8 +263,8 @@ Volumes use the **LUKS-encrypted** default StorageClass `longhorn-encrypted`
 are ciphertext: your friend hosts the data but cannot read it.
 
 > The backup chain is **Longhorn (encrypted) → local MinIO → friend's MinIO**.
-> Full rebuild, escrow requirements, and a DR-test routine are in
-> **[docs/disaster-recovery.md](disaster-recovery.md)**.
+> Full rebuild, escrow requirements, and a DR-test routine are in the
+> **Recovery** tab of [`guide.html`](../guide.html).
 
 ### Interim MinIO on `alpha` (before gamma)
 
