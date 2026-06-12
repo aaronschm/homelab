@@ -68,9 +68,12 @@ Then keep `enable_vlan_tagging = true` (default) in `terraform.tfvars`.
 | `vm_storage` | **beta** | 1 TB ext4 SSD — Talos VM disks (fast for etcd). |
 | `ct_storage` | **beta** | LXC rootfs. |
 | `image_storage` | **local** | Directory storage — holds ISOs + cloud-init **snippets**. ZFS pools (alpha/beta) can't store those content types. |
-| MinIO drives | **gamma (future)** | See below — prefer raw passthrough over a Proxmox pool. |
+| `worker_data_disks[0]` | **beta** | 200 GB — Longhorn volumes (`/var/mnt/longhorn`). |
+| `worker_data_disks[1]` | **alpha** | 1000 GB — interim MinIO (`/var/mnt/alpha`) until gamma. |
+| MinIO drives | **gamma (future)** | See storage section — prefer raw passthrough over a Proxmox pool. |
 
-`alpha` (4 TB raidz1) is being phased out — not referenced by the IaC.
+`alpha` (4 TB raidz1) is being repurposed as the **interim MinIO disk** (~1 TB
+carved off) until the gamma drives are installed; the rest is winding down.
 
 ### Debian 13 (trixie) LXC template — the "volume id"
 
@@ -93,8 +96,9 @@ You define it once; the factory returns a content-addressed **schematic ID**.
 Two ways:
 
 **A. Web UI** — go to <https://factory.talos.dev>, choose: Cloud Server →
-**Nocloud** → arch amd64 → tick **siderolabs/qemu-guest-agent** → it shows your
-schematic ID and the download URLs.
+**Nocloud** → arch amd64 → tick **siderolabs/qemu-guest-agent**,
+**siderolabs/iscsi-tools** and **siderolabs/util-linux-tools** (the last two are
+required by Longhorn) → it shows your schematic ID and the download URLs.
 
 **B. API (reproducible, scriptable)** — POST the recipe:
 
@@ -104,24 +108,27 @@ customization:
   systemExtensions:
     officialExtensions:
       - siderolabs/qemu-guest-agent
+      - siderolabs/iscsi-tools
+      - siderolabs/util-linux-tools
 EOF
 curl -X POST --data-binary @schematic.yaml https://factory.talos.dev/schematics
-# -> {"id":"ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515", ...}
+# -> {"id":"53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83", ...}
 ```
 
 Both yield the same ID for the same recipe — **already generated for you**:
-`ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515` (just
-qemu-guest-agent). The image URL Terraform downloads:
+`53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83`
+(qemu-guest-agent + iscsi-tools + util-linux-tools). The image URL Terraform
+downloads:
 
 ```
-https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.13.4/nocloud-amd64.raw.gz
+https://factory.talos.dev/image/53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83/v1.13.4/nocloud-amd64.raw.gz
 ```
 
 The schematic ID is **not a secret** — it's a hash of the recipe — so it's fine
 in `terraform.tfvars.example`. Terraform downloads the image once to
 `image_storage` and imports it as each VM's disk; Talos config is applied later
-by the `talos` module. Add more extensions (e.g. `siderolabs/iscsi-tools` for
-some storage drivers) by extending the recipe and re-POSTing.
+by the `talos` module. Add more extensions by extending the recipe and
+re-POSTing (then update `talos_image_url`).
 
 > **Note — Debian ISO vs Talos image:** the `debian-13.5.0-amd64-netinst.iso`
 > you uploaded is **only** for the Packer-built cloud-init template (utility VMs
@@ -177,25 +184,48 @@ clusters and is unnecessary for a homelab single node.
 > If the host can't spare 32 GB for the worker, drop it to 16–24 GB and accept
 > reduced MinIO caching.
 
-### Interim storage: run MinIO on `alpha` now (before gamma)
+## Cluster storage: Longhorn (beta) + MinIO (alpha, interim)
 
-You don't have to wait for the 6×18 TB drives. To start building and testing
-your pod configs today, MinIO runs on a virtual data disk carved from the
-existing **`alpha`** pool:
+Two storage systems with different jobs:
 
-- Terraform adds a `scsi1` disk to the worker from `alpha`
-  (`worker_data_disk_gb = 1500`, `worker_data_disk_storage = "alpha"` in
-  `infrastructure/terraform/proxmox/terraform.tfvars`).
-- Talos formats + mounts it at `/var/mnt/alpha`
-  (`worker_data_disk_mount` in the `talos` module).
-- `local-path-provisioner` (the default StorageClass) hands MinIO a PV there
+| | Backing pool | Mount | StorageClass | Used for |
+|---|---|---|---|---|
+| **Longhorn** | `beta` SSD | `/var/mnt/longhorn` | `longhorn` (**default**) | App PVCs (databases, app data) |
+| **MinIO** | `alpha` (interim) | `/var/mnt/alpha` | `local-path` (non-default) | S3 object store + **Longhorn backup target** |
+
+**Longhorn** is the default StorageClass, installed via an Argo CD Helm app
+(`kubernetes/platform/longhorn/longhorn-app.yaml`, chart 1.12.0). Its volumes
+live on the **beta** SSD at `/var/mnt/longhorn`. Single worker → **1 replica**
+(more would just duplicate on the same node). Longhorn needs the
+`iscsi-tools` + `util-linux-tools` Talos system extensions, which is why the
+factory schematic was regenerated to include them
+(ID `53513e54…`, already in `terraform.tfvars.example`).
+
+**Scheduled off-host backups:** a Longhorn `RecurringJob`
+(`kubernetes/platform/longhorn/backup-recurringjob.yaml`) backs up **every 6
+hours** (retain 8 ≈ 2 days) to MinIO at `s3://longhorn-backups`. Replicate that
+MinIO bucket to your friend's MinIO for the off-site copy — then a beta SSD or
+whole-node loss is recoverable from the friend's site.
+
+> The backup chain is **Longhorn → local MinIO → friend's MinIO**. Configure
+> MinIO bucket replication (or a periodic `mc mirror`) to the remote once it
+> exists; until then backups still protect against volume-level mistakes.
+
+### Interim MinIO on `alpha` (before gamma)
+
+You don't have to wait for the 6×18 TB drives. MinIO runs now on a **1000 GB**
+virtual disk carved from the existing **`alpha`** pool:
+
+- Terraform attaches the disk to the worker (`worker_data_disks` entry
+  `{ storage = "alpha", size_gb = 1000, mountpoint = "/var/mnt/alpha" }`).
+- Talos formats + mounts it and bind-mounts it into the kubelet.
+- `local-path-provisioner` hands MinIO a PV there
   (`kubernetes/platform/local-path-provisioner`), and MinIO serves S3 at
   `minio.minio.svc:9000` (`kubernetes/platform/minio`).
 
 **Pods only ever see the S3 endpoint**, so when the gamma drives arrive you swap
-the backing store (below) with zero changes to your app manifests. `alpha` is
-~2.6 TB usable on raidz1 — plenty for experimentation; size `worker_data_disk_gb`
-to taste.
+the backing store (below) with zero changes to your app manifests — and
+Longhorn's backup target stays the same.
 
 ### Passing the 6 drives through to the worker (future)
 
@@ -216,24 +246,15 @@ them. List the drives in `minio_disks_by_id` (for documentation) and run, per di
 ```bash
 # On the Proxmox host — find stable names first:
 ls -l /dev/disk/by-id/   # use ata-/wwn- names, NOT /dev/sdX
-# Attach each disk to the worker VM (vmid 2101), as scsi1..scsi6:
-qm set 2101 -scsi1 /dev/disk/by-id/ata-<DISK1>
-qm set 2101 -scsi2 /dev/disk/by-id/ata-<DISK2>
-# ... through scsi6
+# Attach each disk to the worker VM (vmid 2101), as scsi3..scsi8 (scsi1/2 are
+# the Longhorn + interim-alpha disks):
+qm set 2101 -scsi3 /dev/disk/by-id/ata-<DISK1>
+qm set 2101 -scsi4 /dev/disk/by-id/ata-<DISK2>
+# ... through the 6th drive
 ```
 
-Then mount them in Talos via a machine-config patch (add to the worker patch in
-`infrastructure/terraform/talos/talos.tf`):
-
-```yaml
-machine:
-  disks:
-    - device: /dev/sdb   # first passthrough disk
-      partitions:
-        - mountpoint: /var/mnt/disk1
-    # repeat for /dev/sdc.. /var/mnt/disk6
-```
-
+Then mount them in Talos by adding entries to `worker_data_disks` (or a dedicated
+patch in `infrastructure/terraform/talos/talos.tf`) at `/var/mnt/disk{1..6}`.
 MinIO (deployed via Argo CD) then uses `/var/mnt/disk{1...6}` as its drives.
 Consider MinIO **DirectPV** for managing these as Kubernetes PVs.
 
@@ -270,8 +291,13 @@ make all      # = infra -> cluster -> gitops
    and writes `kubeconfig` + `talosconfig` to `infrastructure/` (git-ignored).
 3. **`make gitops`** — installs Argo CD and applies
    `kubernetes/bootstrap/root-app.yaml`. From there **Argo CD owns the cluster**:
-   the app-of-apps syncs `kubernetes/platform` (local-path, MinIO, ingress…) and
-   `kubernetes/apps` automatically. Your in-repo pods come up on their own.
+   the app-of-apps syncs `kubernetes/platform` (Longhorn, local-path, MinIO,
+   ingress…) and `kubernetes/apps` automatically. Your in-repo pods come up on
+   their own.
+4. **`make secrets`** — applies the git-ignored Kubernetes secrets Argo can't
+   pull from Git (MinIO root + Longhorn backup creds). Copy each
+   `*-secret.example.yaml` to `*-secret.yaml`, edit, then run this (or seal them
+   with `kubeseal` and commit the sealed copy for a fully GitOps flow).
 
 After `make all`, a host power-cycle brings everything back automatically: PVE
 boots the LXCs/VMs in order → Talos rejoins → Argo CD reconciles to the repo.
@@ -334,16 +360,15 @@ once before `make all`:
 - **Dark-VLAN image pulls** — covered above; without the registry mirror the
   cluster cannot start any pod. Biggest gotcha.
 - **No HA — by choice.** 1 CP + 1 worker means node loss = outage; that's
-  accepted. But MinIO SNMD only survives *drive* loss, and etcd lives on the one
-  CP, so **off-box backups still matter**: schedule etcd/Talos snapshots and
-  MinIO bucket replication (or restic) to another host/NAS.
-- **Storage provisioner — local-path.** `local-path-provisioner` is the default
-  StorageClass (`kubernetes/platform/local-path-provisioner`). Chosen over
-  Longhorn for this single, non-HA worker: no Talos `iscsi-tools` extension, no
-  schematic regen, fewer moving parts. PVs live on `/var/mnt/alpha`. If you add a
-  second worker and want replicated volumes later, switch to Longhorn (which then
-  requires regenerating the factory schematic with `iscsi-tools` +
-  `util-linux-tools`).
+  accepted. etcd lives on the one CP, so **off-box backups still matter**:
+  schedule etcd/Talos snapshots, and the Longhorn→MinIO→friend backup chain
+  (above) protects volume data. Replicate the MinIO bucket off-site.
+- **Storage — Longhorn default + local-path for MinIO.** Longhorn (chart 1.12.0,
+  via Argo Helm app) is the **default StorageClass**, on the beta SSD at
+  `/var/mnt/longhorn`, 1 replica, with 6-hourly backups to MinIO. It needs the
+  `iscsi-tools` + `util-linux-tools` Talos extensions (baked into the regenerated
+  schematic `53513e54…`). `local-path` is a **non-default** class used only by
+  MinIO on the interim `alpha` disk. See the storage section.
 - **Talos secrets live in Terraform state.** `talos_machine_secrets` (cluster CA,
   etcd PKI, bootstrap token) is written to the `talos` module's `.tfstate`. With
   local state that's a file on your PC — back it up securely; losing it means
@@ -370,30 +395,56 @@ The only requirement is that **Argo CD can reach the Git repo it points at**:
   (`kubernetes/common/sealed-secrets/`). That's the *only* "repo access" concern —
   it is not about whether the manifests can be in the repo (they should be).
 
+### Secrets in a GitOps repo (MinIO root, Longhorn backup creds)
+
+Plain manifests live in Git, but **secrets must not**. Two facts collide:
+Argo CD applies *only what's in Git*, yet you can't commit plaintext secrets.
+The repo handles this with a template + git-ignore pattern:
+
+- `*-secret.example.yaml` (committed) — placeholder templates. Argo **excludes**
+  them (`directory.exclude: "**/*.example.yaml"`) so it never applies placeholders.
+- `*-secret.yaml` (git-ignored) — the real secret you create locally.
+
+To deploy the real secret, pick one:
+
+- **Manual (simple):** `cp x-secret.example.yaml x-secret.yaml`, edit, then
+  `make secrets` (`kubectl apply`). Quick, but the secret lives only on your PC +
+  the cluster, not in Git — fine for a homelab.
+- **Sealed Secrets (GitOps-native, recommended long-term):** `kubeseal` encrypts
+  the secret into a `SealedSecret` that **is safe to commit**; Argo applies it and
+  the in-cluster controller decrypts it. This keeps the "everything in Git" model
+  without leaking plaintext. Install the sealed-secrets controller (add it to
+  `kubernetes/platform`) and seal MinIO + Longhorn creds when you're ready.
+
 ## Decisions still open (flagged)
 
-- **VLAN-aware bridge + UDM trunk** — biggest prerequisite. `vmbr0` is currently
-  not VLAN-aware, so DMZ/Cluster VLANs don't exist yet. Enable both sides (see
-  Prerequisites) or run with `enable_vlan_tagging = false` during transition.
+- **VLAN-aware bridge + UDM trunk** — `vmbr0` is VLAN-aware ✓ and VLANs 20/24/25
+  exist ✓. Remaining: confirm the UDM **switch port to the Proxmox host is a
+  trunk** carrying VLANs 20/24/25 (tagged). Otherwise tagged guest traffic won't
+  pass and the nodes won't get their VLAN IPs.
 - **Worker RAM vs host capacity** — confirm the host can give the worker 32 GB
   alongside the CP + LXCs (see MinIO section). Fallback 16–24 GB.
 - **UDM auth — local admin login.** Firewall policy CRUD uses the internal v2
   API, authenticated with a local UniFi admin account (not the Integration API
   key). Validate the schema via discovery mode (`ansible/README.md`).
-- **Secrets manager:** SOPS+age (encrypt tfvars in git) vs ignored local tfvars
-  (current default). Pick one before onboarding collaborators.
+- **Secrets manager:** for Terraform — SOPS+age (encrypt tfvars in git) vs
+  ignored local tfvars (current default). For Kubernetes — `make secrets` (manual
+  apply) vs Sealed Secrets (commit encrypted). Pick before onboarding collaborators.
+- **MinIO off-site replication:** configure bucket replication / `mc mirror` from
+  your MinIO to your friend's MinIO once it exists (Longhorn backups land in
+  `longhorn-backups`).
 - **Ingress:** keep DMZ Traefik LXC vs move ingress fully in-cluster.
 - **MinIO disk management:** DirectPV vs static Talos mounts + hostPath (drives
   not installed yet — deferred).
 
 ## Resolved inputs (node `pve`)
 
-- **Node:** `pve`. **Bridge:** `vmbr0` (must be made VLAN-aware — see above).
+- **Node:** `pve`. **Bridge:** `vmbr0` (VLAN-aware ✓; VLANs 20/24/25 created).
 - **Storage:** `vm_storage`/`ct_storage` = `beta` (1 TB SSD); `image_storage` =
-  `local` (ISOs + snippets); `alpha` (4 TB raidz1) = **interim MinIO data disk**
-  until `gamma` (future 6×18 TB MinIO drives) is built.
+  `local` (ISOs + snippets); worker data disks = `beta` 200 GB (Longhorn) +
+  `alpha` 1000 GB (interim MinIO) until `gamma` (future 6×18 TB) is built.
 - **LXC template:** Debian 13 (trixie) — `pveam download local debian-13-standard…`.
-- **Talos schematic URL:** factory.talos.dev nocloud image with qemu-guest-agent.
-- **MinIO drives:** gamma not installed yet; MinIO runs on an interim `alpha`
-  data disk now (`worker_data_disk_gb`), raw passthrough planned for gamma
-  (`minio_disks_by_id = []`).
+- **Talos schematic:** `53513e54…` — nocloud image with qemu-guest-agent +
+  iscsi-tools + util-linux-tools (Longhorn).
+- **MinIO drives:** gamma not installed yet; MinIO runs on the interim `alpha`
+  data disk now, raw passthrough planned for gamma (`minio_disks_by_id = []`).

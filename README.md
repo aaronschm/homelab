@@ -29,7 +29,7 @@ See [docs/network-setup.md](docs/network-setup.md) for VLANs and firewall rules.
 
 ```bash
 cd infrastructure
-make all        # firewall (UDM) -> infra (Proxmox) -> cluster (Talos) -> gitops (Argo CD)
+make all        # firewall (UDM) -> infra (Proxmox) -> cluster (Talos) -> gitops (Argo CD) -> secrets
 ```
 
 Prerequisites and step-by-step are in [docs/proxmox-iac.md](docs/proxmox-iac.md).
@@ -45,7 +45,7 @@ Prerequisites and step-by-step are in [docs/proxmox-iac.md](docs/proxmox-iac.md)
 ├── ansible/                 # UDM Pro firewall + Zot registry mirror
 ├── kubernetes/
 │   ├── bootstrap/           # Argo CD app-of-apps root
-│   ├── platform/            # cluster infrastructure (local-path, MinIO, …)
+│   ├── platform/            # cluster infrastructure (Longhorn, MinIO, …)
 │   ├── common/              # shared resources (sealed secrets)
 │   └── apps/                # application manifests
 └── docs/                    # design + network reference
