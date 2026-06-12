@@ -53,13 +53,14 @@ gitops: kubeconfig
 # Apply the real (git-ignored) Kubernetes secrets that Argo can't pull from Git.
 # Copy the *-secret.example.yaml templates to *-secret.yaml, edit, then run this.
 # (GitOps-native alternative: seal them with kubeseal and commit the sealed copy.)
-SECRET_FILES := $(wildcard ../kubernetes/platform/*/*-secret.yaml)
+SECRET_FILES := $(wildcard ../kubernetes/platform/*/*-secret.yaml) $(wildcard ../kubernetes/apps/*/*-secret.yaml)
 secrets: kubeconfig
 	@if [ -z "$(SECRET_FILES)" ]; then \
 	  echo "No *-secret.yaml found. Copy a *-secret.example.yaml to *-secret.yaml and edit it."; \
 	else \
 	  KUBECONFIG=$(KUBECONFIG_OUT) kubectl create namespace minio --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f - ; \
 	  KUBECONFIG=$(KUBECONFIG_OUT) kubectl create namespace longhorn-system --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f - ; \
+	  KUBECONFIG=$(KUBECONFIG_OUT) kubectl create namespace postgresql --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f - ; \
 	  for f in $(SECRET_FILES); do echo "applying $$f"; KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f $$f; done; \
 	fi
 
