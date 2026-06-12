@@ -1,0 +1,96 @@
+# Single-instance MinIO (S3) for the homelab — interim storage on the 'alpha'
+# pool via local-path. The pods that consume MinIO only see the S3 endpoint
+# (minio.minio.svc:9000), so when the 6x18TB gamma drives arrive you can swap to
+# a distributed MinIO without touching app manifests.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minio
+---
+# NOTE: placeholder credentials for an internal, dark-VLAN playground. CHANGE the
+# password and seal it (kubernetes/common/sealed-secrets) before exposing MinIO.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-root
+  namespace: minio
+type: Opaque
+stringData:
+  MINIO_ROOT_USER: "minioadmin"
+  MINIO_ROOT_PASSWORD: "CHANGE_ME_use_a_long_random_password"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-data
+  namespace: minio
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      # local-path does not enforce quota; the PV uses whatever /var/mnt/alpha has.
+      storage: 500Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: minio
+  labels:
+    app: minio
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+        - name: minio
+          image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+          args: ["server", "/data", "--console-address", ":9001"]
+          envFrom:
+            - secretRef:
+                name: minio-root
+          ports:
+            - name: api
+              containerPort: 9000
+            - name: console
+              containerPort: 9001
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: api
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: minio-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: minio
+  labels:
+    app: minio
+spec:
+  selector:
+    app: minio
+  ports:
+    - name: api
+      port: 9000
+      targetPort: api
+    - name: console
+      port: 9001
+      targetPort: console
