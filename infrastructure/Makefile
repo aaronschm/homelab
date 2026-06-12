@@ -61,6 +61,7 @@ secrets: kubeconfig
 	  KUBECONFIG=$(KUBECONFIG_OUT) kubectl create namespace minio --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f - ; \
 	  KUBECONFIG=$(KUBECONFIG_OUT) kubectl create namespace longhorn-system --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f - ; \
 	  KUBECONFIG=$(KUBECONFIG_OUT) kubectl create namespace postgresql --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f - ; \
+	  KUBECONFIG=$(KUBECONFIG_OUT) kubectl create namespace pelican --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f - ; \
 	  for f in $(SECRET_FILES); do echo "applying $$f"; KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f $$f; done; \
 	fi
 

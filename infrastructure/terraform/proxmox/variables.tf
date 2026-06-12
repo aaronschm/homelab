@@ -192,3 +192,30 @@ variable "lxc_password" {
   sensitive   = true
   default     = ""
 }
+
+###############################################################################
+# Utility VMs (non-Talos) — e.g. the Pelican Wings gameserver host
+###############################################################################
+
+variable "debian_image_url" {
+  description = "URL to the Debian 13 (trixie) genericcloud qcow2 image."
+  type        = string
+  default     = "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"
+}
+
+# Gameserver VMs run Docker + Pelican Wings (the node daemon that launches game
+# containers). The Pelican Panel (web UI) runs in Kubernetes; Wings stays on a
+# dedicated VM so game I/O and Docker never compete with the cluster. Set to {}
+# to provision none.
+variable "gameservers" {
+  description = "Non-Talos Debian VMs for Pelican Wings. Key = name (<vlan><ip>)."
+  type = map(object({
+    vmid     = number
+    ip       = string # CIDR
+    vlan_key = string # key into var.vlans
+    cores    = number
+    memory   = number # MiB
+    disk_gb  = number
+  }))
+  default = {}
+}

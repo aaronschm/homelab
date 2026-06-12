@@ -14,9 +14,9 @@ The new flow is declarative and re-runnable:
 
 - **Terraform `bpg/proxmox`** provisions **VMs and LXC containers** via the
   Proxmox API (`infrastructure/terraform/proxmox`).
-- **Talos Linux** replaces Debian + k3s for cluster nodes — an immutable,
-  API-managed OS. No SSH, no apt, no apt-cacher, no nginx load balancer.
-  Bootstrapped by the `siderolabs/talos` provider
+- **Talos Linux** is the cluster node OS — an immutable, API-managed OS that
+  ships **upstream Kubernetes**. No SSH, no apt, no apt-cacher, no nginx load
+  balancer. Bootstrapped by the `siderolabs/talos` provider
   (`infrastructure/terraform/talos`). Single control plane (not HA, by choice).
 - **LXCs** (registry, DMZ Traefik, utility) remain Proxmox CTs, declared in
   `infrastructure/terraform/proxmox/lxc.tf`.
@@ -151,10 +151,6 @@ plane); the VIP path is only relevant if you ever scale to 3 control planes.
 
 Retired by this design: **Update Server** (apt-cacher) and **Load Balancer**
 (nginx) LXCs — Talos needs neither (no apt; single API endpoint).
-
-> Note on terminology: "k3s" here is replaced by **Talos + upstream Kubernetes**.
-> Talos is the node OS; Kubernetes is the orchestrator that runs your in-repo
-> pods. There is no k3s binary in the new flow.
 
 ## MinIO storage: 6×18 TB + RAM sizing
 

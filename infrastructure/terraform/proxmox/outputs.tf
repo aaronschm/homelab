@@ -12,3 +12,8 @@ output "lxc_ips" {
   description = "LXC IPs (without CIDR mask)."
   value       = { for k, v in var.lxcs : k => split("/", v.ip)[0] }
 }
+
+output "gameserver_ips" {
+  description = "Gameserver VM IPs (without CIDR mask)."
+  value       = { for k, v in var.gameservers : k => split("/", v.ip)[0] }
+}

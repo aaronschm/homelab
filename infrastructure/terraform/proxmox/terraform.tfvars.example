@@ -67,3 +67,10 @@ lxcs = {
   "20101" = { vmid = 20101, ip = "10.10.20.101/24", vlan_key = "mgmt", cores = 1, memory = 2048, disk_gb = 50 }
   "24010" = { vmid = 24010, ip = "10.10.24.10/24", vlan_key = "dmz", cores = 1, memory = 1024, disk_gb = 8 }
 }
+
+# Pelican Wings gameserver host: Debian + Docker on the beta SSD (200 GB).
+# Lives in the DMZ (VLAN 24) so games are reachable and Docker can pull images.
+# The Pelican Panel (web UI) runs in Kubernetes; back game data up to MinIO.
+gameservers = {
+  "24020" = { vmid = 24020, ip = "10.10.24.20/24", vlan_key = "dmz", cores = 4, memory = 8192, disk_gb = 200 }
+}
