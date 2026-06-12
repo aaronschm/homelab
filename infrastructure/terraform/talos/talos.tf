@@ -36,16 +36,34 @@ locals {
     }
   } : {}
 
-  # Format + mount the worker data disk so local-path-provisioner can store PVs
-  # on it (interim MinIO storage on the 'alpha' pool).
-  worker_disk_patch = var.worker_data_disk_mount == "" ? {} : {
+  # Format + mount the worker data disks (scsi1=/dev/sdb, scsi2=/dev/sdc, ...).
+  # Longhorn uses /var/mnt/longhorn (beta) and local-path/MinIO uses /var/mnt/alpha.
+  worker_disks_patch = length(var.worker_data_disks) == 0 ? {} : {
     machine = {
-      disks = [{
-        device = var.worker_data_disk_device
-        partitions = [{
-          mountpoint = var.worker_data_disk_mount
-        }]
-      }]
+      disks = [
+        for i, d in var.worker_data_disks : {
+          device     = "/dev/sd${substr("bcdefghij", i, 1)}"
+          partitions = [{ mountpoint = d.mountpoint }]
+        }
+      ]
+    }
+  }
+
+  # On Talos, separately-mounted disks under /var are NOT visible to the kubelet
+  # (and therefore to hostPath/Longhorn) unless bind-mounted in. Bind each data
+  # disk mountpoint into the kubelet.
+  kubelet_mounts_patch = length(var.worker_data_disks) == 0 ? {} : {
+    machine = {
+      kubelet = {
+        extraMounts = [
+          for d in var.worker_data_disks : {
+            destination = d.mountpoint
+            type        = "bind"
+            source      = d.mountpoint
+            options     = ["bind", "rshared", "rw"]
+          }
+        ]
+      }
     }
   }
 }
@@ -82,7 +100,8 @@ data "talos_machine_configuration" "worker" {
   config_patches = compact([
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
-    var.worker_data_disk_mount != "" ? yamlencode(local.worker_disk_patch) : "",
+    length(var.worker_data_disks) > 0 ? yamlencode(local.worker_disks_patch) : "",
+    length(var.worker_data_disks) > 0 ? yamlencode(local.kubelet_mounts_patch) : "",
   ])
 }
 

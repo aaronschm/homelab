@@ -103,14 +103,14 @@ resource "proxmox_virtual_environment_vm" "worker" {
     size         = each.value.disk_gb
   }
 
-  # Optional data disk (scsi1 -> /dev/sdb) for MinIO/local-path, carved from the
-  # 'alpha' pool until the dedicated gamma drives are installed.
+  # Optional data disks (scsi1, scsi2, ...) for Longhorn (beta) and MinIO (alpha).
+  # Talos formats + mounts each at its mountpoint (see the talos module).
   dynamic "disk" {
-    for_each = var.worker_data_disk_gb > 0 ? [1] : []
+    for_each = { for i, d in var.worker_data_disks : format("scsi%d", i + 1) => d }
     content {
-      datastore_id = var.worker_data_disk_storage
-      interface    = "scsi1"
-      size         = var.worker_data_disk_gb
+      datastore_id = disk.value.storage
+      interface    = disk.key
+      size         = disk.value.size_gb
     }
   }
 

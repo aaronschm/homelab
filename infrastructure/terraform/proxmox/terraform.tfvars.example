@@ -24,12 +24,14 @@ ssh_public_keys = [
   "ssh-ed25519 AAAA... you@admin",
 ]
 
-# Talos image from the factory schematic below (qemu-guest-agent baked in).
-# The schematic ID is content-addressed (deterministic) and NOT a secret.
-# Regenerate any time:  curl -X POST --data-binary @schematic.yaml \
-#   https://factory.talos.dev/schematics    (see docs/proxmox-iac.md)
+# Talos image from the factory schematic below. Schematic includes:
+#   qemu-guest-agent + iscsi-tools + util-linux-tools (the latter two are
+#   REQUIRED by Longhorn). The schematic ID is content-addressed (deterministic)
+#   and NOT a secret. Regenerate any time:
+#     curl -X POST --data-binary @schematic.yaml \
+#       https://factory.talos.dev/schematics    (see docs/proxmox-iac.md)
 talos_version   = "v1.13.4"
-talos_image_url = "https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.13.4/nocloud-amd64.raw.gz"
+talos_image_url = "https://factory.talos.dev/image/53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83/v1.13.4/nocloud-amd64.raw.gz"
 
 # Debian 13 (trixie) LXC template — already on the node as:
 lxc_template = "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
@@ -43,12 +45,17 @@ workers = {
   worker-1 = { vmid = 2101, ip = "10.10.25.101/24", cores = 5, memory = 32768, disk_gb = 100 }
 }
 
-# Interim MinIO storage: carve a data disk from the existing 4TB 'alpha' raidz1
-# pool so MinIO can run before the 6x18TB 'gamma' drives are installed. The pods
-# only see an S3 endpoint, so swapping the backing store later is transparent.
-# Set worker_data_disk_gb = 0 to skip. alpha usable is ~2.6TB; size to taste.
-worker_data_disk_gb      = 1500
-worker_data_disk_storage = "alpha"
+# Worker data disks (attached scsi1, scsi2, ... in this order).
+#   - Longhorn lives on the beta SSD, mounted at /var/mnt/longhorn (default
+#     StorageClass; replica count 1 on the single worker).
+#   - MinIO uses the interim 'alpha' pool (1000 GB for now) mounted at
+#     /var/mnt/alpha via local-path. When the 6x18TB gamma drives are installed,
+#     swap MinIO's backing store (raw passthrough) -- pods only see the S3
+#     endpoint, so no app changes. Keep this list IDENTICAL in the talos module.
+worker_data_disks = [
+  { storage = "beta", size_gb = 200, mountpoint = "/var/mnt/longhorn" },
+  { storage = "alpha", size_gb = 1000, mountpoint = "/var/mnt/alpha" },
+]
 
 # The 6x18TB MinIO drives are NOT installed yet. When they are, prefer RAW disk
 # passthrough to the worker VM (qm set 2101 -scsiN /dev/disk/by-id/...) over

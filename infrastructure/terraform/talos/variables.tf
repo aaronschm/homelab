@@ -42,20 +42,18 @@ variable "install_disk" {
   default     = "/dev/sda"
 }
 
-variable "worker_data_disk_device" {
-  description = "Block device of the worker's MinIO data disk (scsi1)."
-  type        = string
-  default     = "/dev/sdb"
-}
-
-variable "worker_data_disk_mount" {
-  description = <<-EOT
-    Mountpoint for the worker data disk; local-path-provisioner stores PVs here.
-    Leave EMPTY to skip (no data disk). Must match the path in
-    kubernetes/platform/local-path-provisioner config.
-  EOT
-  type        = string
-  default     = ""
+# Keep IDENTICAL to the proxmox module's worker_data_disks. Each entry is
+# formatted + mounted at .mountpoint; the device is derived from list order
+# (scsi1 -> /dev/sdb, scsi2 -> /dev/sdc, ...). The mountpoints are also bind-
+# mounted into the kubelet (required on Talos for hostPath/Longhorn access).
+variable "worker_data_disks" {
+  description = "Ordered worker data disks. mountpoint used here; storage/size_gb are documentation."
+  type = list(object({
+    storage    = string
+    size_gb    = number
+    mountpoint = string
+  }))
+  default = []
 }
 
 variable "controlplane_nodes" {

@@ -140,21 +140,19 @@ variable "workers" {
   }
 }
 
-# Interim MinIO storage: a virtual data disk for the worker, carved from an
-# existing Proxmox pool (e.g. the 4TB 'alpha' raidz1). Lets MinIO run NOW, before
-# the 6x18TB 'gamma' drives are installed. Set worker_data_disk_gb = 0 to skip.
-# When gamma is ready, switch to raw passthrough (see minio_disks_by_id) and the
-# pods keep their same S3 endpoint.
-variable "worker_data_disk_gb" {
-  description = "Size (GiB) of the worker's data disk for MinIO/local-path. 0 = none."
-  type        = number
-  default     = 0
-}
-
-variable "worker_data_disk_storage" {
-  description = "Proxmox storage pool for the worker data disk (e.g. alpha)."
-  type        = string
-  default     = "alpha"
+# Extra data disks for the worker, attached as scsi1, scsi2, ... in list order.
+# Longhorn (beta SSD) and MinIO (interim alpha pool) live here. Keep this list
+# IDENTICAL to the one in the talos module: the talos module derives each disk's
+# device from the same order (scsi1 -> /dev/sdb, scsi2 -> /dev/sdc, ...) and
+# mounts it at .mountpoint. Set to [] to add no data disks.
+variable "worker_data_disks" {
+  description = "Ordered worker data disks. storage+size_gb used here; mountpoint used by the talos module."
+  type = list(object({
+    storage    = string
+    size_gb    = number
+    mountpoint = string
+  }))
+  default = []
 }
 
 # Physical disks (the 6x18TB) passed through to the worker for MinIO.
