@@ -1,0 +1,48 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "🤖 Update dashboard — approve the risky ones here",
+  "timezone": "Europe/Berlin",
+  "schedule": ["after 3am and before 7am"],
+  "labels": ["dependencies"],
+  "argocd": {
+    "managerFilePatterns": ["kubernetes/**/*.yaml"]
+  },
+  "kubernetes": {
+    "managerFilePatterns": ["kubernetes/**/*.yaml"]
+  },
+  "packageRules": [
+    {
+      "description": "Low-risk updates (patch/minor/digest): merge automatically once green.",
+      "matchUpdateTypes": ["patch", "minor", "digest", "pin"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Major upgrades wait for your approval (tick the box on the dashboard).",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "dependencyDashboardApproval": true,
+      "labels": ["dependencies", "major-update"]
+    },
+    {
+      "description": "Talos & Kubernetes need a manual `make cluster` / `talosctl upgrade` after merge — never auto-merge.",
+      "matchPackageNames": ["siderolabs/talos", "kubernetes/kubernetes"],
+      "automerge": false,
+      "dependencyDashboardApproval": true,
+      "labels": ["dependencies", "cluster-upgrade", "manual-apply"]
+    },
+    {
+      "description": "MinIO ships RELEASE.<date> tags rather than semver.",
+      "matchPackageNames": ["minio/minio", "minio/mc"],
+      "groupName": "minio",
+      "versioning": "loose"
+    }
+  ]
+}

@@ -92,6 +92,7 @@ variable "ssh_public_keys" {
 variable "talos_version" {
   description = "Talos Linux version, e.g. v1.13.4"
   type        = string
+  # renovate: datasource=github-releases depName=siderolabs/talos
   default     = "v1.13.4"
 }
 
