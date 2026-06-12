@@ -6,10 +6,8 @@ clicking and in-guest `curl | bash` scripts.
 ```
 infrastructure/
   terraform/
-    proxmox/   # bpg/proxmox: VMs (Talos) + LXC containers, image download
+    proxmox/   # bpg/proxmox: VMs (Talos + gameserver) + LXCs, image download
     talos/     # siderolabs/talos: machine config, bootstrap, kubeconfig
-  packer/
-    debian/    # cloud-init Debian template for utility VMs (e.g. Gameserver)
 ```
 
 ## Order — run from your workstation

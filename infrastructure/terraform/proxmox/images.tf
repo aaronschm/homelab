@@ -26,9 +26,8 @@ resource "proxmox_virtual_environment_download_file" "talos" {
   overwrite               = false
 }
 
-# Debian cloud image, used as the import source for non-Talos utility VMs
-# (e.g. the Pelican Wings gameserver). Imported directly via cloud-init — no
-# Packer build step required.
+# Debian genericcloud image, used as the import source for non-Talos utility VMs
+# (e.g. the Pelican Wings gameserver). Imported directly via cloud-init.
 resource "proxmox_virtual_environment_download_file" "debian" {
   count        = length(var.gameservers) > 0 ? 1 : 0
   content_type = "iso"

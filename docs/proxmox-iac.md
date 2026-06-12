@@ -20,8 +20,9 @@ The new flow is declarative and re-runnable:
   (`infrastructure/terraform/talos`). Single control plane (not HA, by choice).
 - **LXCs** (registry, DMZ Traefik, utility) remain Proxmox CTs, declared in
   `infrastructure/terraform/proxmox/lxc.tf`.
-- **Packer** builds a cloud-init Debian template for non-Talos utility VMs
-  (`infrastructure/packer/debian`).
+- **Utility VMs** (e.g. the Pelican Wings gameserver) import the Debian
+  genericcloud image and are configured by cloud-init — no separate template
+  build step (`infrastructure/terraform/proxmox/gameserver-vms.tf`).
 - **Argo CD app-of-apps** manages everything in-cluster
   (`kubernetes/bootstrap/`).
 
@@ -130,9 +131,9 @@ in `terraform.tfvars.example`. Terraform downloads the image once to
 by the `talos` module. Add more extensions by extending the recipe and
 re-POSTing (then update `talos_image_url`).
 
-> **Note — Debian ISO vs Talos image:** the `debian-13.5.0-amd64-netinst.iso`
-> you uploaded is **only** for the Packer-built cloud-init template (utility VMs
-> like the Gameserver). The Talos control-plane/worker VMs do **not** use it —
+> **Note — Debian image vs Talos image:** the gameserver VM imports the Debian
+> 13 genericcloud qcow2 (downloaded by Terraform, see `debian_image_url`) and is
+> configured by cloud-init. The Talos control-plane/worker VMs do **not** use it —
 > they boot the factory nocloud image above.
 
 ## Topology (sizing)

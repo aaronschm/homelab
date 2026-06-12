@@ -42,17 +42,16 @@ Prerequisites and step-by-step are in [docs/proxmox-iac.md](docs/proxmox-iac.md)
 
 ```
 ├── infrastructure/          # API-driven IaC
-│   ├── terraform/proxmox/   # bpg/proxmox: Talos VMs + LXC containers
+│   ├── terraform/proxmox/   # bpg/proxmox: Talos VMs, LXCs, gameserver VM
 │   ├── terraform/talos/     # siderolabs/talos: cluster bootstrap + kubeconfig
-│   ├── packer/debian/       # cloud-init Debian template for utility VMs
 │   └── Makefile             # one-touch bootstrap
 ├── ansible/                 # UDM Pro firewall + Zot registry mirror
 ├── kubernetes/
 │   ├── bootstrap/           # Argo CD app-of-apps root
 │   ├── platform/            # cluster infrastructure (Longhorn, MinIO, …)
 │   ├── common/              # shared resources (sealed secrets)
-│   └── apps/                # application manifests
-└── docs/                    # design + network reference
+│   └── apps/                # application manifests (PostgreSQL, Pelican, …)
+└── docs/                    # design, network reference, roadmap
 ```
 
 ## Configuration & secrets
