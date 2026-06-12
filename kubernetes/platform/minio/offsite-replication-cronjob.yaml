@@ -1,0 +1,44 @@
+# Off-site replication of the Longhorn backups to your friend's MinIO.
+#
+# Runs `mc mirror` every 3 hours: local longhorn-backups bucket -> friend's
+# bucket. The objects are already LUKS-encrypted by Longhorn (see the encrypted
+# StorageClass), so your friend stores only ciphertext. --remove keeps the
+# off-site copy in sync with local retention (delete here => delete there); drop
+# --remove if you want the off-site copy to keep more history than local.
+#
+# Credentials come from offsite-replication-secret (a dedicated, bucket-scoped
+# user your friend creates for you). Local creds come from minio-root.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: offsite-replication
+  namespace: minio
+spec:
+  schedule: "30 */3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: mc
+              image: minio/mc:RELEASE.2025-04-08T15-39-49Z
+              envFrom:
+                - secretRef:
+                    name: minio-root
+                - secretRef:
+                    name: offsite-replication
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  mc alias set local http://minio.minio.svc:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+                  mc alias set offsite "$OFFSITE_ENDPOINT" "$OFFSITE_ACCESS_KEY" "$OFFSITE_SECRET_KEY"
+                  echo "mirroring longhorn-backups -> offsite/$OFFSITE_BUCKET ..."
+                  mc mirror --overwrite --remove local/longhorn-backups "offsite/$OFFSITE_BUCKET"
+                  echo "off-site replication complete"

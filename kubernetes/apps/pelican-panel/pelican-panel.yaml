@@ -33,7 +33,7 @@ metadata:
   namespace: pelican
 spec:
   accessModes: ["ReadWriteOnce"]
-  storageClassName: longhorn
+  storageClassName: longhorn-encrypted
   resources:
     requests:
       storage: 5Gi

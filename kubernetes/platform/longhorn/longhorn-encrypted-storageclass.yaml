@@ -1,0 +1,35 @@
+# Default StorageClass: LUKS-encrypted Longhorn volumes.
+#
+# WHY: Longhorn encrypts each volume with the passphrase in the 'longhorn-crypto'
+# secret (see longhorn-crypto-secret.example.yaml). Because encryption happens
+# BELOW the backup layer, every backup stored in MinIO -- and therefore every
+# object replicated off-site to your friend's MinIO -- is ciphertext. Your friend
+# administers his own MinIO and can read the objects, but without your passphrase
+# they are useless. Privacy does NOT depend on MinIO access control.
+#
+# This class is the cluster default. The plain (unencrypted) 'longhorn' class
+# still exists (chart-created) for the rare case you explicitly want it.
+#
+# ORDER: the longhorn-crypto secret must exist before the first encrypted PVC
+# binds. `make secrets` applies it; Argo retries PVCs until it is present.
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-encrypted
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+  fromBackup: ""
+  encrypted: "true"
+  csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"

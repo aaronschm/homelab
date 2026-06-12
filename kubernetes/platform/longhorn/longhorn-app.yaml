@@ -30,7 +30,10 @@ spec:
           backupTarget: s3://longhorn-backups@us-east-1/
           backupTargetCredentialSecret: longhorn-backup-credentials
         persistence:
-          defaultClass: true
+          # The encrypted class (longhorn-encrypted-storageclass.yaml) is the
+          # cluster default. Keep the chart's plain 'longhorn' class available
+          # but NOT default.
+          defaultClass: false
           defaultClassReplicaCount: 1
           reclaimPolicy: Delete
         longhornUI:

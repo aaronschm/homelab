@@ -62,9 +62,9 @@ spec:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
-        # Longhorn is the default StorageClass (1 replica on the single worker);
-        # scheduled Longhorn backups ship this volume off-site via MinIO.
-        storageClassName: longhorn
+        # Longhorn (encrypted) is the default StorageClass (1 replica on the
+        # single worker); scheduled backups ship this volume off-site via MinIO.
+        storageClassName: longhorn-encrypted
         resources:
           requests:
             storage: 10Gi
