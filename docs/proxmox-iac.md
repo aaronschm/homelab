@@ -87,19 +87,47 @@ pveam download local debian-13-standard_13.<x>-1_amd64.tar.zst
 That yields e.g. `local:vztmpl/debian-13-standard_13.0-1_amd64.tar.zst` — put the
 exact filename in `terraform.tfvars`. (Trixie = Debian 13, matches your choice.)
 
-### Talos factory schematic URL
+### Talos factory schematic URL — how to generate it
 
-Yes — it's the **image download URL**, but customized. At
-<https://factory.talos.dev> you pick system extensions (add
-**siderolabs/qemu-guest-agent** so the VM reports to Proxmox), which produces a
-**schematic ID**. Use the **nocloud** raw image URL for Proxmox VMs:
+A *schematic* is a Talos image recipe (which system extensions are baked in).
+You define it once; the factory returns a content-addressed **schematic ID**.
+Two ways:
+
+**A. Web UI** — go to <https://factory.talos.dev>, choose: Cloud Server →
+**Nocloud** → arch amd64 → tick **siderolabs/qemu-guest-agent** → it shows your
+schematic ID and the download URLs.
+
+**B. API (reproducible, scriptable)** — POST the recipe:
+
+```bash
+cat > schematic.yaml <<'EOF'
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/qemu-guest-agent
+EOF
+curl -X POST --data-binary @schematic.yaml https://factory.talos.dev/schematics
+# -> {"id":"ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515", ...}
+```
+
+Both yield the same ID for the same recipe — **already generated for you**:
+`ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515` (just
+qemu-guest-agent). The image URL Terraform downloads:
 
 ```
-https://factory.talos.dev/image/<SCHEMATIC_ID>/v1.9.5/nocloud-amd64.raw.gz
+https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.13.4/nocloud-amd64.raw.gz
 ```
 
-Terraform downloads it once to `image_storage` and imports it as each VM's disk.
-You don't pre-build/patch it — Talos config is applied later by the `talos` module.
+The schematic ID is **not a secret** — it's a hash of the recipe — so it's fine
+in `terraform.tfvars.example`. Terraform downloads the image once to
+`image_storage` and imports it as each VM's disk; Talos config is applied later
+by the `talos` module. Add more extensions (e.g. `siderolabs/iscsi-tools` for
+some storage drivers) by extending the recipe and re-POSTing.
+
+> **Note — Debian ISO vs Talos image:** the `debian-13.5.0-amd64-netinst.iso`
+> you uploaded is **only** for the Packer-built cloud-init template (utility VMs
+> like the Gameserver). The Talos control-plane/worker VMs do **not** use it —
+> they boot the factory nocloud image above.
 
 ## Topology (sizing)
 
