@@ -35,6 +35,19 @@ locals {
       }
     }
   } : {}
+
+  # Format + mount the worker data disk so local-path-provisioner can store PVs
+  # on it (interim MinIO storage on the 'alpha' pool).
+  worker_disk_patch = var.worker_data_disk_mount == "" ? {} : {
+    machine = {
+      disks = [{
+        device = var.worker_data_disk_device
+        partitions = [{
+          mountpoint = var.worker_data_disk_mount
+        }]
+      }]
+    }
+  }
 }
 
 # Generates and stores the cluster PKI / secrets in Terraform state.
@@ -69,6 +82,7 @@ data "talos_machine_configuration" "worker" {
   config_patches = compact([
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
+    var.worker_data_disk_mount != "" ? yamlencode(local.worker_disk_patch) : "",
   ])
 }
 

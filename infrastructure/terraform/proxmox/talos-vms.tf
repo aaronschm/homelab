@@ -103,6 +103,17 @@ resource "proxmox_virtual_environment_vm" "worker" {
     size         = each.value.disk_gb
   }
 
+  # Optional data disk (scsi1 -> /dev/sdb) for MinIO/local-path, carved from the
+  # 'alpha' pool until the dedicated gamma drives are installed.
+  dynamic "disk" {
+    for_each = var.worker_data_disk_gb > 0 ? [1] : []
+    content {
+      datastore_id = var.worker_data_disk_storage
+      interface    = "scsi1"
+      size         = var.worker_data_disk_gb
+    }
+  }
+
   network_device {
     bridge  = var.network_bridge
     vlan_id = local.vlan_id["cluster"]

@@ -42,6 +42,22 @@ variable "install_disk" {
   default     = "/dev/sda"
 }
 
+variable "worker_data_disk_device" {
+  description = "Block device of the worker's MinIO data disk (scsi1)."
+  type        = string
+  default     = "/dev/sdb"
+}
+
+variable "worker_data_disk_mount" {
+  description = <<-EOT
+    Mountpoint for the worker data disk; local-path-provisioner stores PVs here.
+    Leave EMPTY to skip (no data disk). Must match the path in
+    kubernetes/platform/local-path-provisioner config.
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "controlplane_nodes" {
   description = "Map of control-plane node name -> IP (no CIDR)."
   type        = map(string)

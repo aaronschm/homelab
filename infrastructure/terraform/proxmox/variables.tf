@@ -140,6 +140,23 @@ variable "workers" {
   }
 }
 
+# Interim MinIO storage: a virtual data disk for the worker, carved from an
+# existing Proxmox pool (e.g. the 4TB 'alpha' raidz1). Lets MinIO run NOW, before
+# the 6x18TB 'gamma' drives are installed. Set worker_data_disk_gb = 0 to skip.
+# When gamma is ready, switch to raw passthrough (see minio_disks_by_id) and the
+# pods keep their same S3 endpoint.
+variable "worker_data_disk_gb" {
+  description = "Size (GiB) of the worker's data disk for MinIO/local-path. 0 = none."
+  type        = number
+  default     = 0
+}
+
+variable "worker_data_disk_storage" {
+  description = "Proxmox storage pool for the worker data disk (e.g. alpha)."
+  type        = string
+  default     = "alpha"
+}
+
 # Physical disks (the 6x18TB) passed through to the worker for MinIO.
 # bpg cannot create raw-device passthrough cleanly, so these are attached at the
 # Proxmox level (see docs/proxmox-iac.md) and mounted by Talos via machine.disks.

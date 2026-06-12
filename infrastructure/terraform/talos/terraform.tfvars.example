@@ -7,6 +7,12 @@ kubernetes_version = "v1.34.1"
 talos_version      = "v1.13.4"
 install_disk       = "/dev/sda"
 
+# Worker data disk (scsi1) for interim MinIO storage on the 'alpha' pool.
+# local-path-provisioner stores PVs at this mountpoint. Leave mount empty to
+# skip. Must match kubernetes/platform/local-path-provisioner's configured path.
+worker_data_disk_device = "/dev/sdb"
+worker_data_disk_mount  = "/var/mnt/alpha"
+
 # Registry LXC acting as a pull-through mirror for the dark Cluster VLAN.
 registry_mirror_endpoint = "http://10.10.20.101:5000"
 
