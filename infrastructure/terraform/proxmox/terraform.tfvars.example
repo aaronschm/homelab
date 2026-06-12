@@ -42,7 +42,7 @@ controlplanes = {
 }
 
 workers = {
-  "25101" = { vmid = 25101, ip = "10.10.25.101/24", cores = 5, memory = 32768, disk_gb = 100 }
+  "25101" = { vmid = 25101, ip = "10.10.25.101/24", cores = 6, memory = 32768, disk_gb = 100 }
 }
 
 # Worker data disks (attached scsi1, scsi2, ... in this order).
@@ -72,5 +72,5 @@ lxcs = {
 # Lives in the DMZ (VLAN 24) so games are reachable and Docker can pull images.
 # The Pelican Panel (web UI) runs in Kubernetes; back game data up to MinIO.
 gameservers = {
-  "24020" = { vmid = 24020, ip = "10.10.24.20/24", vlan_key = "dmz", cores = 4, memory = 8192, disk_gb = 200 }
+  "24020" = { vmid = 24020, ip = "10.10.24.20/24", vlan_key = "dmz", cores = 6, memory = 18432, disk_gb = 200 }
 }

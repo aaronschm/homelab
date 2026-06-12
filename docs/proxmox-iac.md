@@ -141,10 +141,10 @@ re-POSTing (then update `talos_image_url`).
 | Role | Type | VLAN | Count | vCPU | RAM | Disk |
 |---|---|---|---|---|---|---|
 | Talos control plane | VM | 25 | **1** (hardware-limited) | 2 | 6 GB | 50 GB |
-| Talos worker (+ MinIO) | VM | 25 | **1** | 5 | **32 GB** | 100 GB OS + 6×18 TB passthrough |
+| Talos worker (+ MinIO + all pods) | VM | 25 | **1** | 6 | **32 GB** | 100 GB OS + data |
 | Registry (image mirror) | LXC | 20 | 1 | 1 | 2 GB | 50 GB |
 | DMZ Traefik | LXC | 24 | 1 | 1 | 1 GB | 8 GB |
-| Gameserver (Wings) | VM | 24 | 1 | per game | — | — |
+| Gameserver (Wings) | VM | 24 | 1 | 6 | 18 GB | 200 GB (beta) |
 
 Fixed at **1 control plane + 1 worker** per the hardware limit. No kube-vip VIP
 is used in this topology (the cluster endpoint points straight at the control
@@ -152,6 +152,53 @@ plane); the VIP path is only relevant if you ever scale to 3 control planes.
 
 Retired by this design: **Update Server** (apt-cacher) and **Load Balancer**
 (nginx) LXCs — Talos needs neither (no apt; single API endpoint).
+
+## Host resource budget (R7 5800X · 8c/16t · 64 GB)
+
+The 64 GB is the hard constraint. Everything the cluster runs lives on the
+**worker** VM, so we size the worker to the realistic concurrent working set of
+planned pods, then hand the **leftover** to the gameserver.
+
+**Worker pod budget (steady state, the apps from `docs/roadmap.md`):**
+
+| Workload | ~RAM |
+|---|---|
+| Longhorn (manager + engines) | 1.5 GB |
+| MinIO (interim on alpha) | 2 GB |
+| PostgreSQL | 1 GB |
+| Argo CD | 1 GB |
+| Authentik (server+worker+redis) | 1.5 GB |
+| Immich (incl. ML) | 3 GB |
+| Nextcloud/ownCloud | 1.5 GB |
+| Paperless-ngx | 1 GB |
+| Jellyfin (idle; more when transcoding) | 1.5 GB |
+| Vaultwarden / AdGuard / Homepage / Uptime-Kuma / Scrutiny | ~1.5 GB total |
+| Monitoring (VictoriaMetrics/Grafana/Loki) | 2 GB |
+| Pelican Panel | 0.5 GB |
+| kube-system + kubelet + headroom | ~3 GB |
+| **Subtotal** | **~22 GB** |
+
+So **32 GB** for the worker covers the full planned set with spike headroom (and
+keeps MinIO's documented sizing for when the gamma drives come online). The rest:
+
+| Consumer | RAM | vCPU |
+|---|---|---|
+| Proxmox host + ZFS ARC (cap ARC ~4 GB) | ~5 GB | (shared) |
+| Control plane VM | 6 GB | 2 |
+| Worker VM | 32 GB | 6 |
+| Registry LXC | 2 GB | 1 |
+| Traefik LXC | 1 GB | 1 |
+| **Gameserver VM (leftover)** | **18 GB** | **6** |
+| **Total** | **64 GB** | 16 threads |
+
+vCPU is intentionally over-committed (16 assigned across 16 threads, plus host) —
+CPU is time-shared and these workloads rarely peak together; RAM is the real cap,
+so the RAM column sums to the full 64 GB with ~0 slack beyond the host reserve.
+
+> When the **6×18 TB gamma drives** are installed, MinIO will want more RAM
+> (24–32 GB just for itself at ~100 TiB). At that point, shift RAM from the
+> gameserver back to the worker (e.g. worker 40 GB / gameserver 10 GB), or add
+> physical RAM. Until then the gameserver enjoys the surplus.
 
 ## MinIO storage: 6×18 TB + RAM sizing
 

@@ -295,12 +295,13 @@
         <tr><td class="mono">20101</td><td>Zot registry mirror</td><td>LXC</td><td>20</td><td class="mono">10.10.20.101</td><td class="muted">1 vCPU · 2 GB · 50 GB</td></tr>
         <tr><td class="mono">24010</td><td>Traefik reverse proxy</td><td>LXC</td><td>24</td><td class="mono">10.10.24.10</td><td class="muted">1 vCPU · 1 GB · 8 GB</td></tr>
         <tr><td class="mono">25011</td><td>Talos control plane</td><td>VM</td><td>25</td><td class="mono">10.10.25.11</td><td class="muted">2 vCPU · 6 GB · 50 GB</td></tr>
-        <tr><td class="mono">25101</td><td>Talos worker + MinIO</td><td>VM</td><td>25</td><td class="mono">10.10.25.101</td><td class="muted">5 vCPU · 32 GB · 100 GB + data</td></tr>
-        <tr><td class="mono">24020</td><td>Pelican Wings gameserver</td><td>VM</td><td>24</td><td class="mono">10.10.24.20</td><td class="muted">4 vCPU · 8 GB · 200 GB (beta)</td></tr>
+        <tr><td class="mono">25101</td><td>Talos worker + MinIO</td><td>VM</td><td>25</td><td class="mono">10.10.25.101</td><td class="muted">6 vCPU · 32 GB · 100 GB + data</td></tr>
+        <tr><td class="mono">24020</td><td>Pelican Wings gameserver</td><td>VM</td><td>24</td><td class="mono">10.10.24.20</td><td class="muted">6 vCPU · 18 GB · 200 GB (beta)</td></tr>
       </tbody>
     </table>
-    <div class="note">The worker carries 32 GB RAM because it co-locates MinIO across the
-      future 6×18 TB drives (~100 TiB). 16 GB is the practical floor; 24–32 GB is comfortable.</div>
+    <div class="note">The worker carries 32 GB because it runs <b>all cluster pods</b>
+      plus MinIO; the gameserver gets the leftover (18 GB). On a 64 GB host (R7 5800X)
+      this sums to the full budget — see <code>docs/proxmox-iac.md</code> for the breakdown.</div>
   </section>
 
   <!-- STORAGE -->

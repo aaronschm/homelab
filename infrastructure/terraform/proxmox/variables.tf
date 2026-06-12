@@ -136,7 +136,7 @@ variable "workers" {
   # ~24-32 GiB is comfortable for ~100 TiB of MinIO; 16 GiB is the practical
   # floor with reduced caching. Tune to your host's total RAM.
   default = {
-    "25101" = { vmid = 25101, ip = "10.10.25.101/24", cores = 5, memory = 32768, disk_gb = 100 }
+    "25101" = { vmid = 25101, ip = "10.10.25.101/24", cores = 6, memory = 32768, disk_gb = 100 }
   }
 }
 
