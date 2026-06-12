@@ -7,7 +7,8 @@ creates the LXCs and VMs, bootstraps the cluster, and hands operations to Argo C
 See **[docs/proxmox-iac.md](docs/proxmox-iac.md)** for the full design, sizing,
 prerequisites, and migration notes. For an interactive overview, open
 **[guide.html](guide.html)** in a browser. The target service catalogue lives in
-**[docs/roadmap.md](docs/roadmap.md)**.
+**[docs/roadmap.md](docs/roadmap.md)**, and the backup/rebuild playbook in
+**[docs/disaster-recovery.md](docs/disaster-recovery.md)**.
 
 ## Architecture
 
@@ -51,7 +52,7 @@ Prerequisites and step-by-step are in [docs/proxmox-iac.md](docs/proxmox-iac.md)
 │   ├── platform/            # cluster infrastructure (Longhorn, MinIO, …)
 │   ├── common/              # shared resources (sealed secrets)
 │   └── apps/                # application manifests (PostgreSQL, Pelican, …)
-└── docs/                    # design, network reference, roadmap
+└── docs/                    # design, network reference, roadmap, disaster recovery
 ```
 
 ## Configuration & secrets

@@ -322,7 +322,7 @@
     <h3>Kubernetes <span class="accent">storage classes</span></h3>
     <div class="grid cols-3">
       <div class="card"><span class="ico">💾</span><h4>Longhorn</h4>
-        <p>Default class. Replicated block storage (1 replica on the single worker) on the beta SSD. Every pod PVC lands here.</p></div>
+        <p>Default class, <b>LUKS-encrypted</b>. Replicated block storage (1 replica on the single worker) on the beta SSD. Every pod PVC lands here — and because volumes are encrypted, every backup is ciphertext.</p></div>
       <div class="card"><span class="ico">🪣</span><h4>MinIO</h4>
         <p>In-cluster S3 on alpha for now. Holds the <code>longhorn-backups</code> bucket; later moves to the gamma drives.</p></div>
       <div class="card"><span class="ico">📁</span><h4>local-path</h4>
@@ -331,14 +331,17 @@
 
     <h3>Backup <span class="accent">chain</span></h3>
     <div class="diagram">
-      <div class="layer"><div class="nodes"><div class="node"><div class="nh">💾 Longhorn PVC</div><div class="nsub">pod data on beta SSD</div></div></div></div>
+      <div class="layer"><div class="nodes"><div class="node"><div class="nh">💾 Longhorn PVC</div><div class="nsub">pod data · LUKS-encrypted on beta SSD</div></div></div></div>
       <div class="connector"><span>RecurringJob every 6h · retain 8</span></div>
       <div class="layer"><div class="nodes"><div class="node"><div class="nh">🪣 MinIO</div><div class="nsub">s3://longhorn-backups · alpha → later gamma</div></div></div></div>
-      <div class="connector"><span>mc mirror / replication (planned)</span></div>
-      <div class="layer"><div class="nodes"><div class="node"><div class="nh">🌍 Friend's MinIO</div><div class="nsub">off-site copy</div></div></div></div>
+      <div class="connector"><span>mc mirror CronJob every 3h</span></div>
+      <div class="layer"><div class="nodes"><div class="node"><div class="nh">🌍 Friend's MinIO</div><div class="nsub">off-site copy · ciphertext only</div></div></div></div>
     </div>
-    <div class="note ok">Result: a versioned, <b>off-site</b> copy of every Longhorn volume at
-      your friend's place. The off-site leg is wired in once your friend's MinIO exists.</div>
+    <div class="note ok">Volumes are encrypted with your <code>longhorn-crypto</code> passphrase <b>before</b> they
+      reach MinIO, so your friend hosts the data but can't read it. The off-site leg activates once his MinIO exists.
+      Full rebuild &amp; DR-test steps live in <code>docs/disaster-recovery.md</code>.</div>
+    <div class="note warn">Escrow your <code>longhorn-crypto</code> passphrase off-site (password manager + offline).
+      Lose it and every backup — including yours — is permanently unreadable.</div>
   </section>
 
   <!-- BOOTSTRAP -->
@@ -425,7 +428,7 @@
         <tr><td class="mono">terraform/proxmox/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>PVE endpoint, API token, node, storage, image URLs, guest maps</td></tr>
         <tr><td class="mono">terraform/talos/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>Talos schematic image URL, node maps, data disks</td></tr>
         <tr><td class="mono">ansible/group_vars/all.example.yml</td><td class="mono">…/all.yml</td><td>UDM host, local admin username + password</td></tr>
-        <tr><td class="mono">kubernetes/**/​*-secret.example.yaml</td><td class="mono">…/*-secret.yaml</td><td>MinIO root, Longhorn backup creds, PostgreSQL, Pelican APP_KEY</td></tr>
+        <tr><td class="mono">kubernetes/**/​*-secret.example.yaml</td><td class="mono">…/*-secret.yaml</td><td>MinIO root, Longhorn backup creds, <b>longhorn-crypto passphrase</b>, off-site MinIO creds, PostgreSQL, Pelican APP_KEY</td></tr>
       </tbody>
     </table>
     <div class="note ok">Then: <code>cd infrastructure &amp;&amp; make all</code>. The five phases

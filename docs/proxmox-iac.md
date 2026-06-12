@@ -253,13 +253,18 @@ factory schematic was regenerated to include them
 
 **Scheduled off-host backups:** a Longhorn `RecurringJob`
 (`kubernetes/platform/longhorn/backup-recurringjob.yaml`) backs up **every 6
-hours** (retain 8 ≈ 2 days) to MinIO at `s3://longhorn-backups`. Replicate that
-MinIO bucket to your friend's MinIO for the off-site copy — then a beta SSD or
+hours** (retain 8 ≈ 2 days) to MinIO at `s3://longhorn-backups`. The
+`offsite-replication-cronjob.yaml` then `mc mirror`s that bucket to your
+friend's MinIO every 3 hours for the off-site copy — so a beta SSD or
 whole-node loss is recoverable from the friend's site.
 
-> The backup chain is **Longhorn → local MinIO → friend's MinIO**. Configure
-> MinIO bucket replication (or a periodic `mc mirror`) to the remote once it
-> exists; until then backups still protect against volume-level mistakes.
+Volumes use the **LUKS-encrypted** default StorageClass `longhorn-encrypted`
+(keyed by the `longhorn-crypto` secret), so the backups — local and off-site —
+are ciphertext: your friend hosts the data but cannot read it.
+
+> The backup chain is **Longhorn (encrypted) → local MinIO → friend's MinIO**.
+> Full rebuild, escrow requirements, and a DR-test routine are in
+> **[docs/disaster-recovery.md](disaster-recovery.md)**.
 
 ### Interim MinIO on `alpha` (before gamma)
 
