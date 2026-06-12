@@ -1,0 +1,18 @@
+# Scheduled Longhorn backups to MinIO. The "default" group auto-includes every
+# Longhorn volume, so all PVCs are backed up. Every 6 hours, keep the last 8
+# backups (~2 days). Tune the cron/retain to taste.
+#
+# NOTE: depends on the Longhorn CRDs from longhorn-app.yaml. Argo CD will retry
+# this until the CRD exists (selfHeal), so an initial sync error here is benign.
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: backup-every-6h
+  namespace: longhorn-system
+spec:
+  cron: "0 */6 * * *"
+  task: backup
+  groups:
+    - default
+  retain: 8
+  concurrency: 1

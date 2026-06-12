@@ -1,0 +1,31 @@
+# Creates the bucket Longhorn backs up to. Retries until MinIO is reachable and
+# the minio-root secret exists. Safe to re-run (mc mb -p is idempotent).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-bucket-setup
+  namespace: minio
+spec:
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: minio-bucket-setup
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:RELEASE.2025-04-08T15-39-49Z
+          envFrom:
+            - secretRef:
+                name: minio-root
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              until mc alias set local http://minio.minio.svc:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+                echo "waiting for minio..."; sleep 5
+              done
+              mc mb -p local/longhorn-backups
+              echo "bucket ready"

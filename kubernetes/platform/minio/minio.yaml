@@ -7,18 +7,6 @@ kind: Namespace
 metadata:
   name: minio
 ---
-# NOTE: placeholder credentials for an internal, dark-VLAN playground. CHANGE the
-# password and seal it (kubernetes/common/sealed-secrets) before exposing MinIO.
-apiVersion: v1
-kind: Secret
-metadata:
-  name: minio-root
-  namespace: minio
-type: Opaque
-stringData:
-  MINIO_ROOT_USER: "minioadmin"
-  MINIO_ROOT_PASSWORD: "CHANGE_ME_use_a_long_random_password"
----
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

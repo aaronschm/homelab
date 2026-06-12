@@ -23,3 +23,9 @@ kubeconfig
 # Ansible secrets (UDM creds, vault)
 ansible/group_vars/all.yml
 *.vault.yml
+
+# Real Kubernetes secrets — commit only the *.example.yaml templates.
+# (Seal real secrets with kubeseal for GitOps, or apply via `make secrets`.)
+kubernetes/**/*-secret.yaml
+!kubernetes/**/*-secret.example.yaml
+!kubernetes/**/sealed-*.yaml

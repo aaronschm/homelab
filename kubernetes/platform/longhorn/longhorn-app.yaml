@@ -1,0 +1,47 @@
+# Longhorn — the cluster's DEFAULT StorageClass, installed via Helm by Argo CD.
+# Volumes live on the beta SSD at /var/mnt/longhorn (mounted by Talos). Single
+# worker => 1 replica. Backups go to MinIO (s3://longhorn-backups) on a schedule
+# (see backup-recurringjob.yaml); replicate that bucket off-site to your friend's
+# MinIO for an off-host copy.
+#
+# Requires the Talos schematic with iscsi-tools + util-linux-tools (already set
+# in terraform.tfvars.example).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://charts.longhorn.io
+    chart: longhorn
+    targetRevision: 1.12.0
+    helm:
+      values: |
+        defaultSettings:
+          # Talos mounts the beta Longhorn disk here.
+          defaultDataPath: /var/mnt/longhorn
+          # Single worker: 1 replica (more would just duplicate on the same node).
+          defaultReplicaCount: 1
+          # Back up to the in-cluster MinIO (S3). Bucket must exist (minio creates it).
+          backupTarget: s3://longhorn-backups@us-east-1/
+          backupTargetCredentialSecret: longhorn-backup-credentials
+        persistence:
+          defaultClass: true
+          defaultClassReplicaCount: 1
+          reclaimPolicy: Delete
+        longhornUI:
+          replicas: 1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
