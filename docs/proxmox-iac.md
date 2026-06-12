@@ -167,7 +167,7 @@ controller. Raw ≈ 108 TB; usable after default EC ≈ **~72 TB**.
 | ≥ 1 PiB | 64 GB+ |
 
 So the worker is sized at **32 GB** (`workers.worker-1.memory = 32768`). That RAM
-is shared with kubelet, Longhorn, and your other pods, so 32 GB is the sensible
+is shared with kubelet, MinIO, and your other pods, so 32 GB is the sensible
 target; **16 GB is the practical floor** (MinIO runs but with less read caching).
 MinIO's official "production" rec of 128 GB is for high-throughput multi-node
 clusters and is unnecessary for a homelab single node.
@@ -177,7 +177,27 @@ clusters and is unnecessary for a homelab single node.
 > If the host can't spare 32 GB for the worker, drop it to 16–24 GB and accept
 > reduced MinIO caching.
 
-### Passing the 6 drives through to the worker
+### Interim storage: run MinIO on `alpha` now (before gamma)
+
+You don't have to wait for the 6×18 TB drives. To start building and testing
+your pod configs today, MinIO runs on a virtual data disk carved from the
+existing **`alpha`** pool:
+
+- Terraform adds a `scsi1` disk to the worker from `alpha`
+  (`worker_data_disk_gb = 1500`, `worker_data_disk_storage = "alpha"` in
+  `infrastructure/terraform/proxmox/terraform.tfvars`).
+- Talos formats + mounts it at `/var/mnt/alpha`
+  (`worker_data_disk_mount` in the `talos` module).
+- `local-path-provisioner` (the default StorageClass) hands MinIO a PV there
+  (`kubernetes/platform/local-path-provisioner`), and MinIO serves S3 at
+  `minio.minio.svc:9000` (`kubernetes/platform/minio`).
+
+**Pods only ever see the S3 endpoint**, so when the gamma drives arrive you swap
+the backing store (below) with zero changes to your app manifests. `alpha` is
+~2.6 TB usable on raidz1 — plenty for experimentation; size `worker_data_disk_gb`
+to taste.
+
+### Passing the 6 drives through to the worker (future)
 
 The drives aren't installed yet — this is future work. When you add them, you
 have two choices for the **gamma** storage:
@@ -250,7 +270,7 @@ make all      # = infra -> cluster -> gitops
    and writes `kubeconfig` + `talosconfig` to `infrastructure/` (git-ignored).
 3. **`make gitops`** — installs Argo CD and applies
    `kubernetes/bootstrap/root-app.yaml`. From there **Argo CD owns the cluster**:
-   the app-of-apps syncs `kubernetes/platform` (Longhorn, MinIO, ingress…) and
+   the app-of-apps syncs `kubernetes/platform` (local-path, MinIO, ingress…) and
    `kubernetes/apps` automatically. Your in-repo pods come up on their own.
 
 After `make all`, a host power-cycle brings everything back automatically: PVE
@@ -287,9 +307,10 @@ once before `make all`:
 | `10.10.24.10` (Traefik) | VLAN 25 | TCP 80/443 | Ingress |
 
 > Your UDM runs **UniFi Network 10.4.57 → Zone-Based Firewall**. The playbook
-> uses the ZBF v2 API with an API key and **discovers your zones first** (run it
-> read-only, then fill `zone_ids` and re-run with `-e udm_apply=true`). See
-> `ansible/README.md`.
+> logs in with a **local UniFi admin account** (the Integration API key cannot
+> manage firewall policies) and **discovers your zones first** (run it read-only,
+> then fill `zone_ids` and re-run with `-e udm_apply=true`). It manages firewall
+> *policies* only — create the VLAN networks in the UI. See `ansible/README.md`.
 
 ## Phased migration
 
@@ -316,9 +337,13 @@ once before `make all`:
   accepted. But MinIO SNMD only survives *drive* loss, and etcd lives on the one
   CP, so **off-box backups still matter**: schedule etcd/Talos snapshots and
   MinIO bucket replication (or restic) to another host/NAS.
-- **Longhorn replica count — done.** Set to `1` in
-  `kubernetes/platform/longhorn-storageclass.yaml` (single worker; 2 would just
-  duplicate on the same node). Bump back up only if you add a second worker.
+- **Storage provisioner — local-path.** `local-path-provisioner` is the default
+  StorageClass (`kubernetes/platform/local-path-provisioner`). Chosen over
+  Longhorn for this single, non-HA worker: no Talos `iscsi-tools` extension, no
+  schematic regen, fewer moving parts. PVs live on `/var/mnt/alpha`. If you add a
+  second worker and want replicated volumes later, switch to Longhorn (which then
+  requires regenerating the factory schematic with `iscsi-tools` +
+  `util-linux-tools`).
 - **Talos secrets live in Terraform state.** `talos_machine_secrets` (cluster CA,
   etcd PKI, bootstrap token) is written to the `talos` module's `.tfstate`. With
   local state that's a file on your PC — back it up securely; losing it means
@@ -352,8 +377,9 @@ The only requirement is that **Argo CD can reach the Git repo it points at**:
   Prerequisites) or run with `enable_vlan_tagging = false` during transition.
 - **Worker RAM vs host capacity** — confirm the host can give the worker 32 GB
   alongside the CP + LXCs (see MinIO section). Fallback 16–24 GB.
-- **UDM auth confirmed:** API key (`X-API-KEY`). ZBF policy CRUD uses the
-  internal v2 API — validate the schema via discovery mode (`ansible/README.md`).
+- **UDM auth — local admin login.** Firewall policy CRUD uses the internal v2
+  API, authenticated with a local UniFi admin account (not the Integration API
+  key). Validate the schema via discovery mode (`ansible/README.md`).
 - **Secrets manager:** SOPS+age (encrypt tfvars in git) vs ignored local tfvars
   (current default). Pick one before onboarding collaborators.
 - **Ingress:** keep DMZ Traefik LXC vs move ingress fully in-cluster.
@@ -364,7 +390,10 @@ The only requirement is that **Argo CD can reach the Git repo it points at**:
 
 - **Node:** `pve`. **Bridge:** `vmbr0` (must be made VLAN-aware — see above).
 - **Storage:** `vm_storage`/`ct_storage` = `beta` (1 TB SSD); `image_storage` =
-  `local` (ISOs + snippets); `alpha` retired; `gamma` = future MinIO drives.
+  `local` (ISOs + snippets); `alpha` (4 TB raidz1) = **interim MinIO data disk**
+  until `gamma` (future 6×18 TB MinIO drives) is built.
 - **LXC template:** Debian 13 (trixie) — `pveam download local debian-13-standard…`.
 - **Talos schematic URL:** factory.talos.dev nocloud image with qemu-guest-agent.
-- **MinIO drives:** not installed yet; raw passthrough planned (`minio_disks_by_id = []`).
+- **MinIO drives:** gamma not installed yet; MinIO runs on an interim `alpha`
+  data disk now (`worker_data_disk_gb`), raw passthrough planned for gamma
+  (`minio_disks_by_id = []`).

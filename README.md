@@ -45,7 +45,7 @@ Prerequisites and step-by-step are in [docs/proxmox-iac.md](docs/proxmox-iac.md)
 ├── ansible/                 # UDM Pro firewall + Zot registry mirror
 ├── kubernetes/
 │   ├── bootstrap/           # Argo CD app-of-apps root
-│   ├── platform/            # cluster infrastructure (Longhorn, …)
+│   ├── platform/            # cluster infrastructure (local-path, MinIO, …)
 │   ├── common/              # shared resources (sealed secrets)
 │   └── apps/                # application manifests
 └── docs/                    # design + network reference
