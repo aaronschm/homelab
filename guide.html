@@ -296,6 +296,7 @@
         <tr><td class="mono">24010</td><td>Traefik reverse proxy</td><td>LXC</td><td>24</td><td class="mono">10.10.24.10</td><td class="muted">1 vCPU · 1 GB · 8 GB</td></tr>
         <tr><td class="mono">25011</td><td>Talos control plane</td><td>VM</td><td>25</td><td class="mono">10.10.25.11</td><td class="muted">2 vCPU · 6 GB · 50 GB</td></tr>
         <tr><td class="mono">25101</td><td>Talos worker + MinIO</td><td>VM</td><td>25</td><td class="mono">10.10.25.101</td><td class="muted">5 vCPU · 32 GB · 100 GB + data</td></tr>
+        <tr><td class="mono">24020</td><td>Pelican Wings gameserver</td><td>VM</td><td>24</td><td class="mono">10.10.24.20</td><td class="muted">4 vCPU · 8 GB · 200 GB (beta)</td></tr>
       </tbody>
     </table>
     <div class="note">The worker carries 32 GB RAM because it co-locates MinIO across the
@@ -367,6 +368,10 @@
         <p>StatefulSet on a Longhorn PVC, backed up off-site. A ready database for your apps.</p>
         <span class="path">kubernetes/apps/postgresql</span></div>
 
+      <div class="card"><span class="ico">🎮</span><h4>Pelican <span class="pill on">deployed</span></h4>
+        <p>Game-server management. Panel runs here; Wings runs on VM 24020. Backs up to MinIO.</p>
+        <span class="path">kubernetes/apps/pelican-panel</span></div>
+
       <!-- ==================== SERVICES PLACEHOLDER ==================== -->
       <!-- Add a card per service as you deploy it under kubernetes/apps/. -->
       <div class="card" style="border-style: dashed;"><span class="ico">➕</span>
@@ -377,43 +382,100 @@
         <p>e.g. Forgejo, Jellyfin, Immich, Home Assistant, Grafana…</p></div>
       <!-- ============================================================== -->
     </div>
-    <div class="note">Services needing a database point at <code>postgresql.postgresql.svc:5432</code>;
-      services needing object storage use <code>minio.minio.svc:9000</code>.</div>
+    <div class="note">See <code>docs/roadmap.md</code> for the full target catalogue. Services
+      needing a database point at <code>postgresql.postgresql.svc:5432</code>; services needing
+      object storage use <code>minio.minio.svc:9000</code>.</div>
   </section>
 
   <!-- GETTING STARTED -->
   <section id="start">
     <h2>Getting Started</h2>
-    <p class="lead">New to this repo? These answer the questions you'll have first.</p>
-    <details open><summary>Where do I start the install from?</summary>
-      <div class="body"><p>From <b>your PC</b> (the workstation). Install terraform, talosctl, kubectl,
-        helm and ansible, copy each <code>terraform.tfvars.example</code> → <code>terraform.tfvars</code>
-        and <code>ansible/group_vars/all.example.yml</code> → <code>all.yml</code>, then run
-        <code>cd infrastructure &amp;&amp; make all</code>. That alone creates the LXCs/VMs, bootstraps
-        the cluster, and hands off to Argo CD.</p></div></details>
-    <details><summary>Is this k3s or k8s?</summary>
-      <div class="body"><p>Upstream <b>Kubernetes</b> (k8s), shipped by Talos Linux — not k3s. Talos is
-        immutable and fully API-managed (no SSH, no apt, no drift), which is exactly the declarative
-        goal. <code>kubectl</code> works the same; node config lives in the talos Terraform module as
-        machine-config patches.</p></div></details>
+    <p class="lead">Everything <b>you personally</b> must create or fill in before
+       <code>cd infrastructure &amp;&amp; make all</code> will work end-to-end. Run it all from your PC.</p>
+
+    <h3>1 · Things you create <span class="accent">outside the repo</span></h3>
+    <div class="grid cols-2">
+      <div class="card"><span class="ico">🔑</span><h4>Proxmox API token</h4>
+        <p>In Proxmox: <i>Datacenter → Permissions → API Tokens</i>. Create a token (e.g.
+           <code>root@pam!homelab</code>), give it privileges on <code>/</code>. Paste the
+           <code>USER@REALM!ID=UUID</code> into <code>pve_api_token</code>.</p></div>
+      <div class="card"><span class="ico">🌐</span><h4>UDM Pro local admin</h4>
+        <p>UniFi → <i>Settings → Admins</i> → add a <b>local</b> admin (not the Ubiquiti cloud
+           account). The firewall playbook logs in with it. Put it in <code>group_vars/all.yml</code>.</p></div>
+      <div class="card"><span class="ico">🧱</span><h4>Proxmox host prep</h4>
+        <p>Make <code>vmbr0</code> VLAN-aware; trunk VLANs 20/24/25 on the UDM uplink port. Have
+           the LXC template and storage pools (<code>beta</code>, <code>alpha</code>) present.</p></div>
+      <div class="card"><span class="ico">🔐</span><h4>SSH key</h4>
+        <p>Your public key goes in <code>ssh_public_keys</code> — injected into the LXCs and the
+           gameserver VM (Talos nodes have no SSH).</p></div>
+      <div class="card"><span class="ico">📡</span><h4>VLANs on the UDM</h4>
+        <p>Create networks for VLAN 20 / 24 / 25 in UniFi (already done in your case). Ansible only
+           manages firewall <i>policies</i>, not the networks themselves.</p></div>
+      <div class="card"><span class="ico">🧰</span><h4>Tools on your PC</h4>
+        <p><code>terraform</code>, <code>talosctl</code>, <code>kubectl</code>, <code>helm</code>,
+           <code>ansible</code> — plus reachability to ports 8006 / 50000 / 6443.</p></div>
+    </div>
+
+    <h3>2 · Files you copy &amp; fill in <span class="accent">(all git-ignored)</span></h3>
+    <table>
+      <thead><tr><th>Copy from</th><th>To</th><th>Put in it</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">terraform/proxmox/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>PVE endpoint, API token, node, storage, image URLs, guest maps</td></tr>
+        <tr><td class="mono">terraform/talos/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>Talos schematic image URL, node maps, data disks</td></tr>
+        <tr><td class="mono">ansible/group_vars/all.example.yml</td><td class="mono">…/all.yml</td><td>UDM host, local admin username + password</td></tr>
+        <tr><td class="mono">kubernetes/**/​*-secret.example.yaml</td><td class="mono">…/*-secret.yaml</td><td>MinIO root, Longhorn backup creds, PostgreSQL, Pelican APP_KEY</td></tr>
+      </tbody>
+    </table>
+    <div class="note ok">Then: <code>cd infrastructure &amp;&amp; make all</code>. The five phases
+      (firewall → infra → cluster → gitops → secrets) run in order and hand the cluster to Argo CD.</div>
+
+    <h3>3 · Tuning <span class="accent">without rewriting the repo</span></h3>
+    <p class="muted">Almost everything is data in <code>*.tfvars</code> / YAML. Common changes:</p>
+
+    <details><summary>Different network layout / VLANs</summary>
+      <div class="body"><p>Edit the <code>vlans</code> map (id → gateway) in
+        <code>terraform/proxmox/variables.tf</code> and the matching <code>vlan_tag</code> /
+        <code>vlan_id</code> locals in <code>images.tf</code>. Move a guest to another VLAN by
+        changing its <code>vlan_key</code> + IP in the tfvars. Set
+        <code>enable_vlan_tagging = false</code> to deploy everything untagged during a transition.
+        Update the firewall rules in <code>ansible/vars/firewall-rules.yml</code> to match.</p></div></details>
+
+    <details><summary>Resize / re-spec a node</summary>
+      <div class="body"><p>Change <code>cores</code> / <code>memory</code> / <code>disk_gb</code> for any
+        entry in <code>controlplanes</code>, <code>workers</code>, <code>lxcs</code> or
+        <code>gameservers</code> and re-apply. Disks grow on apply (shrinking isn't supported).
+        Worker data disks live in <code>worker_data_disks</code> (e.g. the 400 GB Longhorn disk).</p></div></details>
+
+    <details><summary>Add or rename nodes / guests</summary>
+      <div class="body"><p>Guests are <code>for_each</code> maps keyed by the <code>&lt;vlan&gt;&lt;ip&gt;</code>
+        name. Add an entry to grow the fleet (e.g. a second worker, another LXC). Keep the
+        <code>controlplane_nodes</code> / <code>worker_nodes</code> maps in the <b>talos</b> module
+        in sync with the names/IPs in the <b>proxmox</b> module.</p></div></details>
+
+    <details><summary>Change storage pools</summary>
+      <div class="body"><p>Set <code>vm_storage</code> / <code>ct_storage</code> / <code>image_storage</code>
+        in the tfvars, and the <code>storage</code> field of each <code>worker_data_disks</code> entry.
+        When the 6×18 TB gamma drives arrive, attach them to the worker and point MinIO at them — pods
+        only see the S3 endpoint, so no app changes.</p></div></details>
+
+    <details><summary>Add another gameserver, or skip it</summary>
+      <div class="body"><p>Add entries to the <code>gameservers</code> map (each becomes a Debian +
+        Docker + Wings VM). Set it to <code>{}</code> to provision none. Pelican Panel in
+        <code>kubernetes/apps/pelican-panel</code> manages whatever Wings hosts you register.</p></div></details>
+
+    <h3>4 · Good to know</h3>
+    <details open><summary>What runs the cluster?</summary>
+      <div class="body"><p><b>Talos Linux</b> (immutable, API-managed — no SSH, no apt) running
+        <b>upstream Kubernetes</b>. Operate nodes with <code>talosctl</code> and workloads with
+        <code>kubectl</code>; node changes are machine-config patches in the talos Terraform module.</p></div></details>
     <details><summary>How do I add a new service / pod?</summary>
       <div class="body"><p>Create <code>kubernetes/apps/&lt;name&gt;/</code> with your manifests, commit,
-        and Argo CD deploys it automatically (the app-of-apps recurses and ignores
-        <code>*.example.yaml</code>). Use Longhorn for persistent volumes and the in-cluster
-        PostgreSQL / MinIO for data.</p></div></details>
-    <details><summary>Where do secrets live? Is anything sensitive in Git?</summary>
-      <div class="body"><p>No real secrets in Git. App secrets are committed only as
-        <code>*.example.yaml</code> templates and applied via <code>make secrets</code> (or sealed with
-        kubeseal). Talos PKI/secrets live in the talos Terraform state — keep that out of Git and
-        treat it as sensitive.</p></div></details>
-    <details><summary>How do I operate the cluster after install?</summary>
-      <div class="body"><p>Talos has no SSH. Use <code>talosctl --talosconfig …</code> for node-level
-        operations and <code>kubectl --kubeconfig …</code> for workloads. Node changes are config
-        patches in the talos module, not shell commands on the box.</p></div></details>
-    <details><summary>Can I resize the Longhorn disk later?</summary>
-      <div class="body"><p>Yes — it's <code>worker_data_disks[0].size_gb</code> in the tfvars. A
-        <code>terraform apply</code> grows it (shrinking isn't supported). It's set to <b>400 GB</b>
-        now to avoid the hassle later.</p></div></details>
+        and Argo CD deploys it (the app-of-apps recurses and ignores <code>*.example.yaml</code>). Use
+        Longhorn for volumes and the in-cluster PostgreSQL / MinIO for data. See <code>docs/roadmap.md</code>.</p></div></details>
+    <details><summary>Where do secrets live?</summary>
+      <div class="body"><p>No real secrets in Git — only <code>*.example.yaml</code> templates, applied via
+        <code>make secrets</code> or sealed with kubeseal. Talos PKI lives in the talos Terraform state;
+        keep that out of Git and treat it as sensitive.</p></div></details>
   </section>
 </main>
 
