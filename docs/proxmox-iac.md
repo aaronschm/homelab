@@ -1,28 +1,27 @@
 # Proxmox API IaC + Talos — design & migration
 
-This document describes the API-driven provisioning flow that replaces the manual
-Proxmox setup and the in-guest bootstrap scripts (`scripts/*.sh`,
-`docs/update-server-setup.md`, `docs/load-balancer-setup.md`, `docs/k3s-setup.md`).
+This document describes the API-driven provisioning flow that replaced the manual
+Proxmox setup and the old in-guest `curl | bash` bootstrap scripts (now removed).
 
 ## Why
 
 The original flow created VMs/LXCs by hand in the Proxmox UI, then configured
 them by piping shell scripts over HTTP from an Admin LXC + apt-cacher "update
-server". It was non-idempotent, distributed a cluster token in plaintext
-(`cluster.conf`), and trusted unverified `curl | bash`.
+server". It was non-idempotent, distributed a cluster token in plaintext, and
+trusted unverified `curl | bash`.
 
 The new flow is declarative and re-runnable:
 
 - **Terraform `bpg/proxmox`** provisions **VMs and LXC containers** via the
   Proxmox API (`infrastructure/terraform/proxmox`).
 - **Talos Linux** replaces Debian + k3s for cluster nodes — an immutable,
-  API-managed OS. No SSH, no apt, no apt-cacher, no nginx load balancer
-  (control-plane HA is a `kube-vip` VIP). Bootstrapped by the
-  `siderolabs/talos` provider (`infrastructure/terraform/talos`).
+  API-managed OS. No SSH, no apt, no apt-cacher, no nginx load balancer.
+  Bootstrapped by the `siderolabs/talos` provider
+  (`infrastructure/terraform/talos`). Single control plane (not HA, by choice).
 - **LXCs** (registry, DMZ Traefik, utility) remain Proxmox CTs, declared in
   `infrastructure/terraform/proxmox/lxc.tf`.
-- **Packer** builds a cloud-init Debian template for non-Talos utility VMs such
-  as the Gameserver (`infrastructure/packer/debian`).
+- **Packer** builds a cloud-init Debian template for non-Talos utility VMs
+  (`infrastructure/packer/debian`).
 - **Argo CD app-of-apps** manages everything in-cluster
   (`kubernetes/bootstrap/`).
 
@@ -267,8 +266,8 @@ The **Registry LXC (`10.10.20.101:5000`) acts as a pull-through mirror** running
 docker.io, ghcr.io, registry.k8s.io, gcr.io, quay.io). This replaces the old
 apt-cacher "update server".
 
-> **Why Zot, not `registry:2`:** the legacy `scripts/registry-setup.sh` ran a
-> plain `registry:2`, which can pull-through **only one** upstream. Zot's `sync`
+> **Why Zot, not `registry:2`:** a plain `registry:2` can pull-through
+> **only one** upstream. Zot's `sync`
 > extension proxies **all five** upstreams on demand from a single endpoint.
 > Talos maps each registry name to the same Zot URL; Zot resolves the upstream
 > per request. Deploy with `ansible-playbook -i inventory.ini registry-zot.yml`
@@ -294,20 +293,20 @@ once before `make all`:
 
 ## Phased migration
 
-- **Phase 0 — Safety:** token removed from `cluster.conf`; `.gitignore` covers
+- **Phase 0 — Safety:** cluster token removed; `.gitignore` covers
   tfvars/state/kubeconfig/ansible secrets. Record current VM specs into `terraform.tfvars`.
 - **Phase 1 — Network + provider scaffolding:** run `ansible/udm-firewall.yml` to
   open the inter-VLAN ports on the UDM Pro; create a least-privilege Proxmox API
   token; `terraform -chdir=infrastructure/terraform/proxmox init && plan`.
 - **Phase 2 — LXCs declarative:** apply `lxc.tf` for Registry + DMZ Traefik;
-  make the Registry a pull-through mirror; retire curl-based bootstrap for those.
+  make the Registry a pull-through mirror.
 - **Phase 3 — Talos cluster:** build a factory schematic (with
   `qemu-guest-agent`), set `talos_image_url`, pass through the 6 MinIO disks,
-  apply `proxmox` then `talos`. Retire `scripts/k3s-*.sh`, `update-server`,
-  `load-balancer`.
+  apply `proxmox` then `talos`.
 - **Phase 4 — GitOps:** `make gitops` (Argo CD + app-of-apps). Add MinIO to
   `kubernetes/platform`.
-- **Phase 5 — Cleanup:** delete obsolete scripts/docs; finalize README.
+- **Phase 5 — Cleanup:** legacy scripts/docs and `cluster.conf` deleted; README
+  rewritten for the IaC flow. ✅ done.
 
 ## Things easy to overlook (raised for you)
 

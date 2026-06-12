@@ -1,7 +1,7 @@
 # Infrastructure as Code
 
-Declarative provisioning for the homelab, replacing the manual Proxmox clicking
-and in-guest `curl | bash` scripts in `../scripts/`.
+Declarative provisioning for the homelab, replacing the old manual Proxmox
+clicking and in-guest `curl | bash` scripts.
 
 ```
 infrastructure/

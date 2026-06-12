@@ -1,7 +1,7 @@
 ---
 # Deploy Zot as a multi-upstream pull-through registry mirror on the Registry
 # LXC (10.10.20.101). This is the modern replacement for the old apt-cacher
-# "update server" and the plain `registry:2` from scripts/registry-setup.sh.
+# "update server" and a plain single-upstream `registry:2`.
 #
 # Zot's sync extension proxies docker.io, ghcr.io, registry.k8s.io, gcr.io and
 # quay.io on demand, so the dark Cluster VLAN can pull images via one endpoint.

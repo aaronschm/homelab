@@ -3,89 +3,85 @@
 Having multiple VLANs allows segregation between servers and services, even on the same physical hardware.
 
 I use:
-- a **Management VLAN**
-- a **DMZ (De-Militarized Zone)**
-- a **Cluster VLAN** for Kubernetes nodes and internal traffic
+- a **Management VLAN** (Proxmox API, registry mirror)
+- a **DMZ (De-Militarized Zone)** for public-facing ingress
+- a **Cluster VLAN** for the Talos Kubernetes nodes (dark — no internet)
 
 The DMZ is isolated from the Cluster VLAN through firewall rules, ensuring that public-facing services cannot directly access internal cluster resources unless explicitly allowed.
 
+> Firewall rules are automated against the UDM Pro — see [`ansible/udm-firewall.yml`](../ansible/udm-firewall.yml) and [`ansible/vars/firewall-rules.yml`](../ansible/vars/firewall-rules.yml). This document is the human-readable reference for that config.
+
 ## **Requirements**
 
-One or more of the following components are required inside the network:
-
-- Managed **Layer 2 Switch** with VLAN (802.1Q) support
-- **Layer 3 Router / Firewall** capable of inter-VLAN routing
-- Self-hosted firewall appliance using pfSense or OPNsense
+- Managed **Layer 2 switch** with VLAN (802.1Q) support, plus a trunk port to the Proxmox host carrying VLANs 20/24/25.
+- **Layer 3 router / firewall** for inter-VLAN routing — here a **UDM Pro** (UniFi Network 10.4.57, Zone-Based Firewall).
+- The Proxmox bridge `vmbr0` must be **VLAN-aware** so per-VM/CT VLAN tags work.
 
 ## **Network Layout**
 
 | VLAN | Name | Subnet | Description | Internet Access |
 | :--- | :--- | :--- | :--- | :--- |
-| **20** | **Management** | `10.10.20.0/24` | Admin LXC, Update Server, Load Balancer | **YES** |
-| **24** | **DMZ** | `10.10.24.0/24` | Traefik Reverse Proxy (`10.10.24.10`) | **YES** |
-| **25** | **Cluster** | `10.10.25.0/24` | K3s Control Planes & Agents (Dark VLAN) | **NO** |
+| **20** | **Management** | `10.10.20.0/24` | Proxmox host, Registry (Zot) mirror | **YES** |
+| **24** | **DMZ** | `10.10.24.0/24` | Traefik reverse proxy (`10.10.24.10`) | **YES** |
+| **25** | **Cluster** | `10.10.25.0/24` | Talos control plane + worker (dark VLAN) | **NO** |
 
-## **Firewall Rules**
-
-These rules define the allowed traffic between VLANs and external networks. Rules should be processed top-down, with a final deny-all policy at the end.
-
-### Management Access
-
-| Source | Destination | Port/Protocol | Purpose |
-| :--- | :--- | :--- | :--- |
-| VLAN 20 (Admin LXC) | VLAN 24, VLAN 25 | TCP 2022 | SSH management access |
-| VLAN 20 (Admin LXC) | VLAN 20 (Load Balancer) | TCP 6443 | Kubernetes API access |
-
-### Cluster Outbound
-
-| Source | Destination | Port/Protocol | Purpose |
-| :--- | :--- | :--- | :--- |
-| VLAN 25 (Cluster) | `10.10.20.100` | TCP 3142 | Apt-cacher update proxy |
-| VLAN 25 (Cluster) | `10.10.20.100` | TCP 80 | Script and binary fetching from Update Server |
-| VLAN 25 (Cluster) | `10.10.20.21` | TCP 6443 | Agents reaching K3s API via Load Balancer |
-
-### Ingress Path from DMZ to Cluster
-
-| Source | Destination | Port/Protocol | Purpose |
-| :--- | :--- | :--- | :--- |
-| `10.10.24.10` (Traefik) | VLAN 25 | TCP 80, 443 | Forward web traffic to Kubernetes services |
-| `10.10.24.10` (Traefik) | VLAN 25 | TCP 10250 | Kubelet metrics and dashboard access |
-
-## **WAN / Internet Rules**
-
-| Source | Internet Access | Purpose |
-| :--- | :--- | :--- |
-| VLAN 20 | Enabled | Admin tooling and update access |
-| VLAN 24 | Enabled | Traefik needs LetsEncrypt and external reachability |
-| VLAN 25 | Disabled | Dark VLAN: no direct internet access |
-
-## **K3s Internal Traffic**
-
-These ports must remain open within VLAN 25 for cluster operation. They typically stay inside the subnet and do not require router-level forwarding.
-
-- `6443`: K3s API server
-- `2379-2380`: Etcd client and peer communication
-- `8472` (UDP): Flannel VXLAN / pod networking
-- `10250`: Kubelet API
+> The workstation that runs the IaC sits on VLAN 10/20 and needs access to the Proxmox API (8006), the Talos API (50000), and the Kubernetes API (6443).
 
 ## **IP Assignments**
 
 | Host | Type | VLAN | IP Address |
 | :--- | :--- | :--- | :--- |
-| Admin LXC | LXC | 20 – Management | `10.10.20.20` |
-| Load Balancer | LXC | 20 – Management | `10.10.20.21` |
-| Update Server | LXC | 20 – Management | `10.10.20.100` |
-| Registry Server | LXC | 20 – Management | `10.10.20.101` |
+| Registry (Zot mirror) | LXC | 20 – Management | `10.10.20.101` |
 | DMZ Reverse Proxy (Traefik) | LXC | 24 – DMZ | `10.10.24.10` |
-| Gameserver (Pelican Wings) | VM | 24 – DMZ | `10.10.24.20` |
-| K3s Control Plane | VM | 25 – Cluster | `10.10.25.11` |
-| K3s Agent | VM | 25 – Cluster | `10.10.25.101` |
+| Talos Control Plane | VM | 25 – Cluster | `10.10.25.11` |
+| Talos Worker (+ MinIO) | VM | 25 – Cluster | `10.10.25.101` |
 
-> IPs are also defined in [`cluster.conf`](../cluster.conf) and must match before running any scripts.
+> These IPs are defined declaratively in `infrastructure/terraform/proxmox/terraform.tfvars`.
+
+## **Firewall Rules**
+
+Rules are processed top-down with a final deny-all. They are applied via Ansible.
+
+### Management / IaC access
+
+| Source | Destination | Port/Protocol | Purpose |
+| :--- | :--- | :--- | :--- |
+| PC (VLAN 10) | VLAN 20 (Proxmox) | TCP 8006 | Proxmox API |
+| PC (VLAN 10) | VLAN 25 nodes | TCP 50000 | Talos API (config + bootstrap) |
+| PC (VLAN 10) | VLAN 25 control plane | TCP 6443 | Kubernetes API |
+
+### Cluster outbound (dark VLAN)
+
+| Source | Destination | Port/Protocol | Purpose |
+| :--- | :--- | :--- | :--- |
+| VLAN 25 (Cluster) | `10.10.20.101` | TCP 5000 | Container image pull-through (Zot) |
+
+### Ingress path from DMZ to Cluster
+
+| Source | Destination | Port/Protocol | Purpose |
+| :--- | :--- | :--- | :--- |
+| `10.10.24.10` (Traefik) | VLAN 25 | TCP 80, 443 | Forward web traffic to Kubernetes services |
+
+## **WAN / Internet Rules**
+
+| Source | Internet Access | Purpose |
+| :--- | :--- | :--- |
+| VLAN 20 | Enabled | Proxmox updates, Talos factory image, registry upstreams |
+| VLAN 24 | Enabled | Traefik needs Let's Encrypt and external reachability |
+| VLAN 25 | Disabled | Dark VLAN: no direct internet access (pulls via Zot mirror) |
+
+## **Talos / Kubernetes internal traffic**
+
+These ports must remain open within VLAN 25 for cluster operation:
+
+- `6443`: Kubernetes API server
+- `50000`: Talos apid (machine config / bootstrap)
+- `2379-2380`: etcd client and peer communication
+- `10250`: kubelet API
 
 ## **Implementation Notes**
 
-- Create VLANs on the router/firewall first.
-- Assign static IPs for the Update Server, Load Balancer, and Traefik.
+- Create the VLANs on the UDM Pro first and trunk them to the Proxmox host.
+- Make `vmbr0` VLAN-aware before applying Terraform with `enable_vlan_tagging = true`.
 - Verify that a node in VLAN 25 cannot reach the internet directly.
-- Verify that VLAN 25 can reach `10.10.20.100:3142` for package caching.
+- Verify that VLAN 25 can reach `10.10.20.101:5000` (the Zot mirror).
