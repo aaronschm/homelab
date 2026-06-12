@@ -47,6 +47,12 @@ gitops: kubeconfig
 	KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -n argocd \
 		-f https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VERSION)/manifests/install.yaml
 	KUBECONFIG=$(KUBECONFIG_OUT) kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
+	@if [ -f ../kubernetes/bootstrap/repo-credentials-secret.yaml ]; then \
+	  echo "applying private-repo credentials"; \
+	  KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f ../kubernetes/bootstrap/repo-credentials-secret.yaml; \
+	else \
+	  echo "no repo-credentials-secret.yaml (fine for a public repo)"; \
+	fi
 	KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f ../kubernetes/bootstrap/root-app.yaml
 	@echo "Argo CD installed and root app applied. GitOps now owns the cluster."
 
