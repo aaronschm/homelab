@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Homelab — Interactive Guide</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel2: #1c2330;
+    --border: #2d3441;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  header {
+    padding: 32px 24px 24px;
+    background: linear-gradient(135deg, #161b22 0%, #11161d 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0 0 6px; font-size: 28px; }
+  header p { margin: 0; color: var(--muted); max-width: 760px; }
+  .badges { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge {
+    font-family: var(--mono); font-size: 12px; padding: 3px 10px;
+    border: 1px solid var(--border); border-radius: 20px; color: var(--muted);
+    background: var(--panel);
+  }
+  .badge b { color: var(--accent); font-weight: 600; }
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; flex-wrap: wrap; gap: 4px;
+    padding: 10px 24px; background: rgba(13,17,23,.92);
+    backdrop-filter: blur(8px); border-bottom: 1px solid var(--border);
+  }
+  nav button {
+    font-size: 14px; color: var(--muted); background: transparent;
+    border: 1px solid transparent; border-radius: 8px; padding: 7px 14px;
+    cursor: pointer; transition: all .15s;
+  }
+  nav button:hover { color: var(--text); background: var(--panel); }
+  nav button.active { color: var(--accent); background: var(--panel); border-color: var(--border); }
+  main { max-width: 980px; margin: 0 auto; padding: 28px 24px 80px; }
+  section { display: none; animation: fade .2s ease; }
+  section.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  h2 { font-size: 22px; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin: 22px 0 8px; color: var(--text); }
+  p { color: var(--text); }
+  .muted { color: var(--muted); }
+  code, .mono { font-family: var(--mono); font-size: 13px; }
+  code { background: var(--panel2); padding: 1px 6px; border-radius: 5px; color: #e3b341; }
+  pre {
+    background: #0a0e13; border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 13px;
+    color: var(--text);
+  }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px;
+  }
+  .card h4 { margin: 0 0 6px; font-size: 15px; }
+  .card .tag { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  td .mono { color: var(--accent); }
+  .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px; font-family: var(--mono); }
+  .pill.on { background: rgba(63,185,80,.15); color: var(--accent2); }
+  .pill.off { background: rgba(248,81,73,.15); color: var(--danger); }
+  .pill.soon { background: rgba(210,153,34,.15); color: var(--warn); }
+  details {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 0; margin: 10px 0; overflow: hidden;
+  }
+  details summary {
+    cursor: pointer; padding: 14px 16px; font-weight: 600; list-style: none;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after { content: "+"; color: var(--accent); font-size: 18px; }
+  details[open] summary::after { content: "\2212"; }
+  details summary:hover { background: var(--panel2); }
+  details .body { padding: 0 16px 16px; border-top: 1px solid var(--border); }
+  .note { border-left: 3px solid var(--accent); background: var(--panel2); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .note.warn { border-color: var(--warn); }
+  .note.ok { border-color: var(--accent2); }
+  .flow { display: flex; flex-direction: column; gap: 0; margin: 16px 0; }
+  .step { display: flex; gap: 14px; align-items: flex-start; }
+  .step .dot {
+    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--panel); border: 1px solid var(--accent); color: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-family: var(--mono);
+    font-size: 13px; font-weight: 600;
+  }
+  .step .line { flex: 0 0 auto; width: 30px; display: flex; justify-content: center; }
+  .step .line::before { content: ""; width: 1px; background: var(--border); height: 100%; min-height: 18px; }
+  .step .content { padding-bottom: 14px; flex: 1; }
+  .step .content b { color: var(--text); }
+  .diagram { font-family: var(--mono); font-size: 12.5px; line-height: 1.5; white-space: pre; overflow-x: auto;
+    background: #0a0e13; border: 1px solid var(--border); border-radius: 8px; padding: 16px; color: var(--muted); }
+  .diagram b { color: var(--accent); }
+  .diagram .g { color: var(--accent2); }
+  .diagram .w { color: var(--warn); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 24px; border-top: 1px solid var(--border); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏠 Homelab — Interactive Guide</h1>
+  <p>Proxmox VE + Talos Linux Kubernetes, fully declarative. Terraform provisions the
+     VMs &amp; LXCs through the Proxmox API, Talos bootstraps Kubernetes, and Argo CD
+     runs everything in this repo as GitOps. Single node, 1 control plane + 1 worker.</p>
+  <div class="badges">
+    <span class="badge">Node <b>pve</b></span>
+    <span class="badge">Talos <b>v1.13.4</b></span>
+    <span class="badge">Kubernetes <b>v1.34.1</b></span>
+    <span class="badge">Provider <b>bpg/proxmox</b></span>
+    <span class="badge">GitOps <b>Argo CD</b></span>
+    <span class="badge">Storage <b>Longhorn + MinIO</b></span>
+  </div>
+</header>
+
+<nav id="nav">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="network">Network</button>
+  <button data-tab="inventory">Inventory</button>
+  <button data-tab="storage">Storage &amp; Backups</button>
+  <button data-tab="bootstrap">Bootstrap Flow</button>
+  <button data-tab="services">Services</button>
+  <button data-tab="faq">FAQ</button>
+</nav>
+
+<main>
+  <!-- OVERVIEW -->
+  <section id="overview" class="active">
+    <h2>Overview</h2>
+    <p>This homelab is driven entirely from version-controlled config on your workstation.
+       Nothing is clicked together by hand: the Proxmox API creates the guests, Talos
+       (an immutable, API-managed Linux) builds the cluster, and Argo CD continuously
+       syncs the manifests in <code>kubernetes/</code>.</p>
+
+    <div class="grid">
+      <div class="card"><span class="tag">infrastructure/terraform/proxmox</span>
+        <h4>Guests</h4><p class="muted">Creates the Talos VMs and the Zot/Traefik LXCs over the Proxmox API.</p></div>
+      <div class="card"><span class="tag">infrastructure/terraform/talos</span>
+        <h4>Cluster</h4><p class="muted">Generates machine configs, bootstraps etcd, emits kubeconfig + talosconfig.</p></div>
+      <div class="card"><span class="tag">kubernetes/</span>
+        <h4>Workloads</h4><p class="muted">Argo CD app-of-apps: platform (Longhorn/MinIO) + apps (your pods).</p></div>
+      <div class="card"><span class="tag">ansible/</span>
+        <h4>Edge</h4><p class="muted">UDM Pro firewall policies + Zot registry mirror provisioning.</p></div>
+    </div>
+
+    <h3>The whole picture</h3>
+    <div class="diagram">  Your PC  ──terraform/ansible──►  <b>Proxmox host "pve"</b>
+     │                              │
+     │                       ┌──────┴───────────────────────────┐
+     │                       │  <b>25011</b> control plane VM (Talos)  │
+     │                       │  <b>25101</b> worker VM (Talos + MinIO) │
+     │                       │  <b>20101</b> registry LXC (Zot mirror)  │
+     │                       │  <b>24010</b> traefik LXC (DMZ proxy)    │
+     │                       └──────────────────────────────────┘
+     │                              │
+     └──kubectl/talosctl──►  <b>Kubernetes (k8s v1.34)</b>
+                                    │
+                  Argo CD ──► Longhorn · MinIO · <span class="g">your pods</span></div>
+
+    <div class="note ok">Entry point: run everything from <b>your PC</b> (the workstation).
+      <code>cd infrastructure &amp;&amp; make all</code> walks the full flow end-to-end.</div>
+  </section>
+
+  <!-- NETWORK -->
+  <section id="network">
+    <h2>Network &amp; VLANs</h2>
+    <p>Three VLANs on the UDM Pro (trunked to the Proxmox uplink on a VLAN-aware
+       <code>vmbr0</code>). VLAN 25 is intentionally <b>dark</b> — no WAN access.</p>
+    <table>
+      <thead><tr><th>VLAN</th><th>Role</th><th>Subnet</th><th>Internet</th></tr></thead>
+      <tbody>
+        <tr><td><span class="mono">20</span></td><td>Management</td><td class="mono">10.10.20.0/24</td><td><span class="pill on">yes</span></td></tr>
+        <tr><td><span class="mono">24</span></td><td>DMZ</td><td class="mono">10.10.24.0/24</td><td><span class="pill on">yes</span></td></tr>
+        <tr><td><span class="mono">25</span></td><td>Cluster</td><td class="mono">10.10.25.0/24</td><td><span class="pill off">dark</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">VLAN 25 nodes never touch the internet. They pull container images
+      through the <b>Zot mirror</b> at <code>10.10.20.101:5000</code> on VLAN 20. Talos has
+      no SSH and no package manager, so the attack surface is smaller than the old script setup.</div>
+
+    <h3>Firewall automation</h3>
+    <p><code>ansible/udm-firewall.yml</code> logs into the UDM with a local admin account,
+       discovers the existing Zone-Based Firewall policies, then applies the rules the
+       cluster needs. VLANs themselves are created in the UniFi UI; Ansible only manages policies.</p>
+  </section>
+
+  <!-- INVENTORY -->
+  <section id="inventory">
+    <h2>Guest Inventory</h2>
+    <p>Names follow a <b><code>&lt;vlan&gt;&lt;ip&gt;</code></b> scheme so the name tells you
+       where it lives: <code>24010</code> = VLAN 24, host <code>.10</code>;
+       <code>25101</code> = VLAN 25, host <code>.101</code>. The Proxmox <code>vmid</code> matches the name.</p>
+    <table>
+      <thead><tr><th>Name / vmid</th><th>Role</th><th>Type</th><th>VLAN</th><th>IP</th><th>Sizing</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">20101</td><td>Zot registry mirror</td><td>LXC</td><td>20</td><td class="mono">10.10.20.101</td><td class="muted">1 vCPU · 2 GB · 50 GB</td></tr>
+        <tr><td class="mono">24010</td><td>Traefik reverse proxy</td><td>LXC</td><td>24</td><td class="mono">10.10.24.10</td><td class="muted">1 vCPU · 1 GB · 8 GB</td></tr>
+        <tr><td class="mono">25011</td><td>Talos control plane</td><td>VM</td><td>25</td><td class="mono">10.10.25.11</td><td class="muted">2 vCPU · 6 GB · 50 GB</td></tr>
+        <tr><td class="mono">25101</td><td>Talos worker + MinIO</td><td>VM</td><td>25</td><td class="mono">10.10.25.101</td><td class="muted">5 vCPU · 32 GB · 100 GB + data</td></tr>
+      </tbody>
+    </table>
+    <div class="note">The worker carries 32 GB RAM because it co-locates MinIO across the
+      future 6×18 TB drives (~100 TiB). 16 GB is the practical floor; 24–32 GB is comfortable.</div>
+  </section>
+
+  <!-- STORAGE -->
+  <section id="storage">
+    <h2>Storage &amp; Backups</h2>
+    <h3>Proxmox storage pools</h3>
+    <table>
+      <thead><tr><th>Pool</th><th>Hardware</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">beta</td><td>1 TB SSD</td><td>VM/LXC disks + <b>Longhorn</b> data (400 GB → <code>/var/mnt/longhorn</code>)</td></tr>
+        <tr><td class="mono">alpha</td><td>4 TB raidz1 (retiring)</td><td>Interim MinIO backing (1000 GB → <code>/var/mnt/alpha</code>)</td></tr>
+        <tr><td class="mono">gamma</td><td>6×18 TB (not yet installed)</td><td>Future MinIO via raw passthrough</td></tr>
+        <tr><td class="mono">local</td><td>host disk</td><td>ISOs + cloud-init snippets</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Where Kubernetes storage comes from</h3>
+    <div class="grid">
+      <div class="card"><span class="tag">default StorageClass</span><h4>Longhorn</h4>
+        <p class="muted">Replicated block storage (1 replica on the single worker). Lives on
+          the beta SSD. Every pod PVC (e.g. PostgreSQL) lands here.</p></div>
+      <div class="card"><span class="tag">S3</span><h4>MinIO</h4>
+        <p class="muted">In-cluster object store on alpha for now. Holds the
+          <code>longhorn-backups</code> bucket; later moves to the gamma drives.</p></div>
+      <div class="card"><span class="tag">non-default</span><h4>local-path</h4>
+        <p class="muted">Backs MinIO's own volume from <code>/var/mnt/alpha</code>.</p></div>
+    </div>
+
+    <h3>Backup chain</h3>
+    <div class="diagram">  pod PVC (<b>Longhorn</b> on beta SSD)
+       │  RecurringJob every 6h, retain 8
+       ▼
+  in-cluster <b>MinIO</b>  s3://longhorn-backups   (on alpha → later gamma)
+       │  mc mirror / bucket replication  (planned)
+       ▼
+  <span class="w">friend's MinIO (off-site)</span></div>
+    <div class="note ok">Result: a daily-ish, versioned, <b>off-site</b> copy of every Longhorn
+      volume at your friend's place. The off-site replication leg is wired in once your friend's MinIO exists.</div>
+  </section>
+
+  <!-- BOOTSTRAP -->
+  <section id="bootstrap">
+    <h2>Bootstrap Flow</h2>
+    <p>One command from your PC: <code>cd infrastructure &amp;&amp; make all</code>. It runs
+       these phases in order. You can also run each target on its own.</p>
+    <div class="flow">
+      <div class="step"><div class="dot">1</div><div class="content"><b>make firewall</b> — Ansible configures UDM Pro firewall policies so the VLANs can talk as needed.</div></div>
+      <div class="step"><div class="line"></div><div class="content"></div></div>
+      <div class="step"><div class="dot">2</div><div class="content"><b>make infra</b> — Terraform (bpg/proxmox) creates the LXCs and Talos VMs and autostarts them in boot order (registry first).</div></div>
+      <div class="step"><div class="line"></div><div class="content"></div></div>
+      <div class="step"><div class="dot">3</div><div class="content"><b>make cluster</b> — Terraform (siderolabs/talos) applies machine configs, bootstraps etcd, and writes <code>kubeconfig</code> + <code>talosconfig</code>.</div></div>
+      <div class="step"><div class="line"></div><div class="content"></div></div>
+      <div class="step"><div class="dot">4</div><div class="content"><b>make gitops</b> — Installs Argo CD and applies the root app-of-apps. Argo then deploys Longhorn, MinIO, and your pods automatically.</div></div>
+      <div class="step"><div class="line"></div><div class="content"></div></div>
+      <div class="step"><div class="dot">5</div><div class="content"><b>make secrets</b> — Applies the git-ignored Kubernetes secrets (MinIO root, Longhorn backup creds, PostgreSQL).</div></div>
+    </div>
+
+    <details><summary>First-time prerequisites</summary>
+      <div class="body">
+        <ul>
+          <li>Copy each <code>terraform.tfvars.example</code> → <code>terraform.tfvars</code> and fill in real values (these are git-ignored).</li>
+          <li>Copy <code>ansible/group_vars/all.example.yml</code> → <code>all.yml</code> with the UDM admin login.</li>
+          <li>Run <code>make secrets</code> only after copying each <code>*-secret.example.yaml</code> → <code>*-secret.yaml</code> and editing it.</li>
+          <li>Tools installed on your PC: terraform, talosctl, kubectl, helm, ansible.</li>
+        </ul>
+      </div>
+    </details>
+    <details><summary>Managing the cluster afterwards</summary>
+      <div class="body">
+        <p>Talos has no SSH. Use <code>talosctl --talosconfig …</code> for node-level operations
+           and <code>kubectl --kubeconfig …</code> for workloads. Node changes are config patches in
+           the talos Terraform module, not shell commands.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- SERVICES (placeholder) -->
+  <section id="services">
+    <h2>Services</h2>
+    <p>Anything in <code>kubernetes/apps/</code> is auto-deployed by Argo CD. Add a folder,
+       commit, and it appears. This section is your living catalogue.</p>
+    <div class="grid">
+      <div class="card"><span class="tag">kubernetes/apps/postgresql</span>
+        <h4>PostgreSQL <span class="pill on">deployed</span></h4>
+        <p class="muted">StatefulSet on a Longhorn PVC, backed up off-site. Ready as a database for your apps.</p></div>
+
+      <!-- ==================== SERVICES PLACEHOLDER ==================== -->
+      <!-- Add a card per service as you deploy it under kubernetes/apps/. -->
+      <div class="card" style="border-style: dashed;">
+        <span class="tag">placeholder</span>
+        <h4>Your service <span class="pill soon">planned</span></h4>
+        <p class="muted">Drop manifests in <code>kubernetes/apps/&lt;name&gt;/</code> and document it here.</p></div>
+      <div class="card" style="border-style: dashed;">
+        <span class="tag">placeholder</span>
+        <h4>Your service <span class="pill soon">planned</span></h4>
+        <p class="muted">e.g. Forgejo (lightweight self-hosted Git), media, dashboards…</p></div>
+      <!-- ============================================================== -->
+    </div>
+    <div class="note">Tip: services needing a database can point at
+      <code>postgresql.postgresql.svc:5432</code>. Services needing object storage use
+      <code>minio.minio.svc:9000</code>.</div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <h2>FAQ</h2>
+    <details><summary>Did we switch from k3s to k8s? Why?</summary>
+      <div class="body"><p>Yes. Talos Linux ships <b>upstream Kubernetes</b> (k8s), not k3s. Talos is
+        immutable and fully API-managed — no SSH, no apt, no drift — which is exactly the
+        declarative goal. For you: <code>kubectl</code> works the same; node config lives in the
+        talos Terraform module as machine-config patches instead of shell scripts.</p></div></details>
+    <details><summary>Is VLAN 25 still dark / no less secure than before?</summary>
+      <div class="body"><p>Still dark by design. Nodes pull images via the Zot mirror on VLAN 20;
+        Talos has no shell or SSH. Security is equal or better than the old script-based setup.</p></div></details>
+    <details><summary>Is there still an "update server"?</summary>
+      <div class="body"><p>No. The old apt-cacher / update-server / load-balancer / admin LXCs are gone.
+        The <b>Zot pull-through mirror</b> (LXC 20101) replaces them for image caching; Talos handles
+        OS updates declaratively.</p></div></details>
+    <details><summary>Can I grow the Longhorn disk later?</summary>
+      <div class="body"><p>Yes — it's just <code>worker_data_disks[0].size_gb</code> in the tfvars. Before
+        provisioning it's free to change; after, a <code>terraform apply</code> grows the disk
+        (shrinking isn't supported). It's currently set to <b>400 GB</b> to avoid the hassle.</p></div></details>
+    <details><summary>Do I need a self-hosted Git LXC?</summary>
+      <div class="body"><p>Not required — Argo currently syncs from the public GitHub repo. If you want
+        self-hosting, the lightest fit is <b>Forgejo</b> (or Gitea): a single Go binary, ~100 MB RAM,
+        SQLite backend, happy in a small Debian LXC. Add it to <code>lxc.tf</code> and point Argo's
+        <code>repoURL</code> at it (with a read-only credential as a Sealed Secret).</p></div></details>
+    <details><summary>Where do Talos secrets live?</summary>
+      <div class="body"><p>In Terraform state for the talos module (the generated PKI/secrets bundle).
+        Keep that state out of Git and treat it as sensitive. Kubernetes app secrets stay out of Git too —
+        committed only as <code>*.example.yaml</code> templates, applied via <code>make secrets</code> or sealed.</p></div></details>
+  </section>
+</main>
+
+<footer>Generated guide for the <b>aaronschm/homelab</b> repo · open <code>guide.html</code> in any browser.</footer>
+
+<script>
+  const buttons = document.querySelectorAll('#nav button');
+  const sections = document.querySelectorAll('main section');
+  buttons.forEach(btn => btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    buttons.forEach(b => b.classList.toggle('active', b === btn));
+    sections.forEach(s => s.classList.toggle('active', s.id === tab));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }));
+</script>
+</body>
+</html>

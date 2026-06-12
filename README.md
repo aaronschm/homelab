@@ -5,7 +5,8 @@ Proxmox API and operated via GitOps (Argo CD). One command from your workstation
 creates the LXCs and VMs, bootstraps the cluster, and hands operations to Argo CD.
 
 See **[docs/proxmox-iac.md](docs/proxmox-iac.md)** for the full design, sizing,
-prerequisites, and migration notes.
+prerequisites, and migration notes. For an interactive overview, open
+**[guide.html](guide.html)** in a browser.
 
 ## Architecture
 
