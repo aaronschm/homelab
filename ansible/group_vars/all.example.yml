@@ -1,12 +1,14 @@
 # Copy to ansible/group_vars/all.yml and fill in. all.yml is git-ignored.
-# Best practice: ansible-vault encrypt the api key, or pass it at runtime with
-#   ansible-playbook ... -e "udm_api_key=$UDM_API_KEY"
+# Best practice: ansible-vault encrypt this file, or pass the password at runtime
+#   ansible-playbook ... -e "udm_password=$UDM_PASSWORD"
 
 udm_host: "https://10.10.20.1"     # UDM Pro IP on the mgmt VLAN
 udm_site: "default"
 
-# UniFi Network 9.0+ API key (see ansible/README.md for how to create one).
-# Sent as the X-API-KEY header. NOT a username/password.
-udm_api_key: "CHANGE_ME"
+# Local UniFi admin account (NOT your Ubiquiti SSO cloud login). Create a
+# local-only admin in the UI: Settings -> Admins & Users -> Add Admin ->
+# "Restrict to local access only". See ansible/README.md.
+udm_username: "ansible"
+udm_password: "CHANGE_ME"
 
 udm_verify_ssl: false              # UDM uses a self-signed cert by default

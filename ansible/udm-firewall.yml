@@ -1,20 +1,22 @@
 ---
-# Configure inter-VLAN firewall on a UDM Pro running UniFi Network 9.0+
-# (Zone-Based Firewall) via the v2 API, authenticating with an API key.
+# Configure inter-VLAN firewall on a UDM Pro running UniFi Network 10.x
+# (Zone-Based Firewall) via the internal v2 API.
 #
-# UniFi Network 10.x replaced the classic rule list with the Zone-Based
-# Firewall. Policies reference *zones* (groups of networks/VLANs), not raw
-# subnets, and zone IDs are specific to your controller. This playbook therefore
-# runs in two modes:
+# AUTH: this uses a local UniFi admin account (username/password) rather than an
+# Integration API key. Reason: the Integration API (X-API-KEY) only exposes
+# sites/devices/clients — it CANNOT create firewall policies. Firewall CRUD lives
+# on the internal v2 API, which authenticates with a login session (cookie +
+# CSRF token). Create a local-only admin in the UniFi UI (see ansible/README.md).
 #
+# Two modes:
 #   1. DISCOVER (default, read-only): dumps your zones + existing policies so you
-#      can see the exact schema/IDs on your box.
+#      can copy the zone IDs into vars/firewall-rules.yml.
 #        ansible-playbook -i inventory.ini udm-firewall.yml
-#
 #   2. APPLY: create the policies defined in vars/firewall-rules.yml.
 #        ansible-playbook -i inventory.ini udm-firewall.yml -e udm_apply=true
 #
-# Secrets: put udm_api_key in group_vars/all.yml (git-ignored) or pass with -e.
+# NOTE: this playbook manages FIREWALL POLICIES only. You still create the VLAN
+# networks (20/24/25) in the UniFi UI first — see ansible/README.md.
 
 - name: Configure UDM Pro Zone-Based Firewall
   hosts: udm
@@ -26,23 +28,31 @@
     - vars/firewall-rules.yml
 
   tasks:
-    - name: Verify the API key works (official integration API)
+    - name: Log in to the UniFi controller (local admin account)
       ansible.builtin.uri:
-        url: "{{ udm_host }}/proxy/network/integration/v1/sites"
-        method: GET
-        headers:
-          X-API-KEY: "{{ udm_api_key }}"
-          Accept: "application/json"
+        url: "{{ udm_host }}/api/auth/login"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ udm_username }}"
+          password: "{{ udm_password }}"
         validate_certs: "{{ udm_verify_ssl }}"
         status_code: [200]
-      register: api_check
+      register: login
+      no_log: true
+
+    - name: Capture session cookie + CSRF token
+      ansible.builtin.set_fact:
+        unifi_cookie: "{{ login.cookies_string }}"
+        unifi_csrf: "{{ login.x_csrf_token | default(login.x_updated_csrf_token | default('')) }}"
 
     - name: Fetch firewall zones
       ansible.builtin.uri:
         url: "{{ api_base }}/firewall/zone"
         method: GET
         headers:
-          X-API-KEY: "{{ udm_api_key }}"
+          Cookie: "{{ unifi_cookie }}"
+          X-CSRF-Token: "{{ unifi_csrf }}"
           Accept: "application/json"
         validate_certs: "{{ udm_verify_ssl }}"
         status_code: [200]
@@ -53,7 +63,8 @@
         url: "{{ api_base }}/firewall-policies"
         method: GET
         headers:
-          X-API-KEY: "{{ udm_api_key }}"
+          Cookie: "{{ unifi_cookie }}"
+          X-CSRF-Token: "{{ unifi_csrf }}"
           Accept: "application/json"
         validate_certs: "{{ udm_verify_ssl }}"
         status_code: [200]
@@ -79,7 +90,8 @@
         url: "{{ api_base }}/firewall-policies"
         method: POST
         headers:
-          X-API-KEY: "{{ udm_api_key }}"
+          Cookie: "{{ unifi_cookie }}"
+          X-CSRF-Token: "{{ unifi_csrf }}"
           Accept: "application/json"
         body_format: json
         body:
