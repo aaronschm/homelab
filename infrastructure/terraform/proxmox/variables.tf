@@ -90,9 +90,9 @@ variable "ssh_public_keys" {
 ###############################################################################
 
 variable "talos_version" {
-  description = "Talos Linux version, e.g. v1.9.5"
+  description = "Talos Linux version, e.g. v1.13.4"
   type        = string
-  default     = "v1.9.5"
+  default     = "v1.13.4"
 }
 
 variable "talos_image_url" {

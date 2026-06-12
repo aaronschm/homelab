@@ -27,13 +27,13 @@ variable "registry_mirror_endpoint" {
 variable "kubernetes_version" {
   description = "Kubernetes version Talos should install."
   type        = string
-  default     = "v1.32.0"
+  default     = "v1.34.1"
 }
 
 variable "talos_version" {
-  description = "Talos machine config contract version, e.g. v1.9.5"
+  description = "Talos machine config contract version, e.g. v1.13.4"
   type        = string
-  default     = "v1.9.5"
+  default     = "v1.13.4"
 }
 
 variable "install_disk" {

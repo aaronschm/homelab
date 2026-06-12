@@ -34,7 +34,7 @@ variable "pve_node" {
 variable "iso_file" {
   description = "Datastore volume id of the Debian netinst ISO."
   type        = string
-  default     = "local:iso/debian-13-netinst-amd64.iso"
+  default     = "local:iso/debian-13.5.0-amd64-netinst.iso"
 }
 
 variable "template_vmid" {
