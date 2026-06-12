@@ -296,12 +296,13 @@
         <tr><td class="mono">24010</td><td>Traefik reverse proxy</td><td>LXC</td><td>24</td><td class="mono">10.10.24.10</td><td class="muted">1 vCPU · 1 GB · 8 GB</td></tr>
         <tr><td class="mono">25011</td><td>Talos control plane</td><td>VM</td><td>25</td><td class="mono">10.10.25.11</td><td class="muted">2 vCPU · 6 GB · 50 GB</td></tr>
         <tr><td class="mono">25101</td><td>Talos worker + MinIO</td><td>VM</td><td>25</td><td class="mono">10.10.25.101</td><td class="muted">6 vCPU · 32 GB · 100 GB + data</td></tr>
-        <tr><td class="mono">24020</td><td>Pelican Wings gameserver</td><td>VM</td><td>24</td><td class="mono">10.10.24.20</td><td class="muted">6 vCPU · 18 GB · 200 GB (beta)</td></tr>
+        <tr><td class="mono">24020</td><td>Pelican Wings gameserver</td><td>VM</td><td>24</td><td class="mono">10.10.24.20</td><td class="muted">4 vCPU · 10 GB · 200 GB (beta)</td></tr>
       </tbody>
     </table>
     <div class="note">The worker carries 32 GB because it runs <b>all cluster pods</b>
-      plus MinIO; the gameserver gets the leftover (18 GB). On a 64 GB host (R7 5800X)
-      this sums to the full budget — see <code>docs/proxmox-iac.md</code> for the breakdown.</div>
+      plus MinIO; RAM is reserved for HAOS and other host LXCs, and the gameserver gets
+      the leftover (10 GB). On a 64 GB host (R7 5800X) this sums to the full budget —
+      see <code>docs/proxmox-iac.md</code> for the breakdown.</div>
   </section>
 
   <!-- STORAGE -->
@@ -311,8 +312,8 @@
     <table>
       <thead><tr><th>Pool</th><th>Hardware</th><th>Use</th></tr></thead>
       <tbody>
-        <tr><td class="mono">beta</td><td>1 TB SSD</td><td>VM/LXC disks + <b>Longhorn</b> data (400 GB → <code>/var/mnt/longhorn</code>)</td></tr>
         <tr><td class="mono">alpha</td><td>4 TB raidz1 (retiring)</td><td>Interim MinIO backing (1000 GB → <code>/var/mnt/alpha</code>)</td></tr>
+        <tr><td class="mono">beta</td><td>1 TB SSD</td><td>VM/LXC disks + <b>Longhorn</b> data (400 GB → <code>/var/mnt/longhorn</code>)</td></tr>
         <tr><td class="mono">gamma</td><td>6×18 TB (not yet installed)</td><td>Future MinIO via raw passthrough</td></tr>
         <tr><td class="mono">local</td><td>host disk</td><td>ISOs + cloud-init snippets</td></tr>
       </tbody>

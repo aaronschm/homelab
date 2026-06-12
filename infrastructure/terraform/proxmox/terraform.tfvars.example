@@ -72,5 +72,5 @@ lxcs = {
 # Lives in the DMZ (VLAN 24) so games are reachable and Docker can pull images.
 # The Pelican Panel (web UI) runs in Kubernetes; back game data up to MinIO.
 gameservers = {
-  "24020" = { vmid = 24020, ip = "10.10.24.20/24", vlan_key = "dmz", cores = 6, memory = 18432, disk_gb = 200 }
+  "24020" = { vmid = 24020, ip = "10.10.24.20/24", vlan_key = "dmz", cores = 4, memory = 10240, disk_gb = 200 }
 }

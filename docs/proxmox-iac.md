@@ -144,7 +144,7 @@ re-POSTing (then update `talos_image_url`).
 | Talos worker (+ MinIO + all pods) | VM | 25 | **1** | 6 | **32 GB** | 100 GB OS + data |
 | Registry (image mirror) | LXC | 20 | 1 | 1 | 2 GB | 50 GB |
 | DMZ Traefik | LXC | 24 | 1 | 1 | 1 GB | 8 GB |
-| Gameserver (Wings) | VM | 24 | 1 | 6 | 18 GB | 200 GB (beta) |
+| Gameserver (Wings) | VM | 24 | 1 | 4 | 10 GB | 200 GB (beta) |
 
 Fixed at **1 control plane + 1 worker** per the hardware limit. No kube-vip VIP
 is used in this topology (the cluster endpoint points straight at the control
@@ -179,7 +179,10 @@ planned pods, then hand the **leftover** to the gameserver.
 | **Subtotal** | **~22 GB** |
 
 So **32 GB** for the worker covers the full planned set with spike headroom (and
-keeps MinIO's documented sizing for when the gamma drives come online). The rest:
+keeps MinIO's documented sizing for when the gamma drives come online). The rest
+is split so there is always headroom for guests that live on the host but are
+**not** in this repo yet — chiefly **Home Assistant OS** (HAOS, with the Bluetooth/
+Wi-Fi PCIe card passed through) and any other LXCs you add by hand:
 
 | Consumer | RAM | vCPU |
 |---|---|---|
@@ -188,17 +191,20 @@ keeps MinIO's documented sizing for when the gamma drives come online). The rest
 | Worker VM | 32 GB | 6 |
 | Registry LXC | 2 GB | 1 |
 | Traefik LXC | 1 GB | 1 |
-| **Gameserver VM (leftover)** | **18 GB** | **6** |
+| **Reserved: HAOS VM** (not in repo) | **4 GB** | 2 |
+| **Reserved: other LXCs headroom** | **4 GB** | — |
+| **Gameserver VM (leftover)** | **10 GB** | 4 |
 | **Total** | **64 GB** | 16 threads |
 
-vCPU is intentionally over-committed (16 assigned across 16 threads, plus host) —
-CPU is time-shared and these workloads rarely peak together; RAM is the real cap,
-so the RAM column sums to the full 64 GB with ~0 slack beyond the host reserve.
+vCPU is intentionally over-committed — CPU is time-shared and these workloads
+rarely peak together; **RAM is the real cap**, so the RAM column sums to the full
+64 GB. The two *Reserved* rows are deliberately left unallocated by Terraform so
+you can stand up HAOS and ad-hoc LXCs without starving the cluster or gameserver.
 
 > When the **6×18 TB gamma drives** are installed, MinIO will want more RAM
-> (24–32 GB just for itself at ~100 TiB). At that point, shift RAM from the
-> gameserver back to the worker (e.g. worker 40 GB / gameserver 10 GB), or add
-> physical RAM. Until then the gameserver enjoys the surplus.
+> (24–32 GB just for itself at ~100 TiB). At that point, reclaim from the
+> gameserver and/or the reserved pool (e.g. worker 40 GB / gameserver 8 GB), or
+> add physical RAM. Until then the gameserver enjoys the surplus.
 
 ## MinIO storage: 6×18 TB + RAM sizing
 
