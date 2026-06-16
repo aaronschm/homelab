@@ -1,6 +1,6 @@
 # Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored.
 
-cluster_name       = "homelab"
+cluster_name       = "isarcloud"
 # Single control plane: leave cluster_vip empty (no kube-vip needed).
 cluster_vip        = ""
 kubernetes_version = "v1.34.1"

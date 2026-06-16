@@ -1,7 +1,7 @@
 variable "cluster_name" {
   description = "Talos/Kubernetes cluster name."
   type        = string
-  default     = "homelab"
+  default     = "isarcloud"
 }
 
 variable "cluster_vip" {

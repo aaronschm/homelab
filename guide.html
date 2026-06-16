@@ -335,17 +335,21 @@
 
     <h3>Backup <span class="accent">chain</span></h3>
     <div class="diagram">
-      <div class="layer"><div class="nodes"><div class="node"><div class="nh">💾 Longhorn PVC</div><div class="nsub">pod data · LUKS-encrypted on beta SSD</div></div></div></div>
-      <div class="connector"><span>RecurringJob every 6h · retain 8</span></div>
-      <div class="layer"><div class="nodes"><div class="node"><div class="nh">🪣 MinIO</div><div class="nsub">s3://longhorn-backups · alpha → later gamma</div></div></div></div>
-      <div class="connector"><span>mc mirror CronJob every 3h</span></div>
+      <div class="layer"><div class="nodes">
+        <div class="node"><div class="nh">💾 Longhorn PVC</div><div class="nsub">pod data · LUKS-encrypted on beta SSD</div></div>
+        <div class="node"><div class="nh">🪣 MinIO app data</div><div class="nsub">ownCloud, immich… (Jellyfin excluded)</div></div>
+      </div></div>
+      <div class="connector"><span>Longhorn RecurringJob 6h · retain 8&nbsp;&nbsp;|&nbsp;&nbsp;rclone crypt sync 6h (client-side encrypted)</span></div>
+      <div class="layer"><div class="nodes"><div class="node"><div class="nh">🪣 local MinIO</div><div class="nsub">alpha → later gamma</div></div></div></div>
+      <div class="connector"><span>mc mirror 3h · rclone crypt → friend</span></div>
       <div class="layer"><div class="nodes"><div class="node"><div class="nh">🌍 Friend's MinIO</div><div class="nsub">off-site copy · ciphertext only</div></div></div></div>
     </div>
-    <div class="note ok">Volumes are encrypted with your <code>longhorn-crypto</code> passphrase <b>before</b> they
-      reach MinIO, so your friend hosts the data but can't read it. The off-site leg activates once his MinIO exists.
+    <div class="note ok">Both paths are encrypted with <b>your</b> passphrases before leaving the house —
+      Longhorn volumes via <code>longhorn-crypto</code>, MinIO app data via <code>offsite-crypt</code> (rclone). Your
+      friend hosts the data but can't read it. The off-site legs activate once his MinIO exists.
       Full rebuild &amp; DR-test steps are in the Recovery tab above.</div>
-    <div class="note warn">Escrow your <code>longhorn-crypto</code> passphrase off-site (password manager + offline).
-      Lose it and every backup — including yours — is permanently unreadable.</div>
+    <div class="note warn">Escrow <b>both</b> passphrases off-site (Bitwarden).
+      Lose one and the corresponding backup — including yours — is permanently unreadable.</div>
   </section>
 
   <!-- BOOTSTRAP -->
@@ -432,7 +436,7 @@
         <tr><td class="mono">terraform/proxmox/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>PVE endpoint, API token, node, storage, image URLs, guest maps</td></tr>
         <tr><td class="mono">terraform/talos/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>Talos schematic image URL, node maps, data disks</td></tr>
         <tr><td class="mono">ansible/group_vars/all.example.yml</td><td class="mono">…/all.yml</td><td>UDM host, local admin username + password</td></tr>
-        <tr><td class="mono">kubernetes/**/​*-secret.example.yaml</td><td class="mono">…/*-secret.yaml</td><td>MinIO root, Longhorn backup creds, <b>longhorn-crypto passphrase</b>, off-site MinIO creds, PostgreSQL, Pelican APP_KEY</td></tr>
+        <tr><td class="mono">kubernetes/**/​*-secret.example.yaml</td><td class="mono">…/*-secret.yaml</td><td>MinIO root, Longhorn backup creds, <b>longhorn-crypto + offsite-crypt passphrases</b>, off-site MinIO creds, PostgreSQL, Pelican APP_KEY</td></tr>
       </tbody>
     </table>
     <div class="note ok">Then: <code>cd infrastructure &amp;&amp; make all</code>. The five phases
@@ -493,22 +497,23 @@
     <p class="lead">The "house burned down" playbook: what's backed up where, how it stays
        private, and how to rebuild on a new (identically specced) server.</p>
 
-    <h3>The backup <span class="accent">chain</span></h3>
+    <h3>Two backup <span class="accent">paths</span></h3>
+    <p class="muted">Two kinds of data, each encrypted before it leaves the house:</p>
     <ol class="steps">
-      <li><b>Longhorn</b> holds every stateful volume on the <b>beta</b> SSD (1 replica — single worker).</li>
-      <li>Volumes use the <b>LUKS-encrypted</b> default StorageClass <code>longhorn-encrypted</code>, keyed by the <code>longhorn-crypto</code> secret. Encryption sits <b>below</b> the backup layer, so everything written out is ciphertext.</li>
-      <li>A RecurringJob snapshots every volume <b>every 6 h</b> (keep 8) to local MinIO bucket <code>longhorn-backups</code>.</li>
-      <li>An off-site CronJob <code>mc mirror</code>s that bucket to your <b>friend's MinIO every 3 h</b>.</li>
+      <li><b>Pod volumes (Longhorn)</b> — PostgreSQL, Pelican, etc. on the <b>beta</b> SSD use the <b>LUKS-encrypted</b> default StorageClass <code>longhorn-encrypted</code> (key: <code>longhorn-crypto</code>). A RecurringJob backs them up <b>every 6 h</b> (keep 8) to local MinIO bucket <code>longhorn-backups</code>, and an <code>mc mirror</code> CronJob ships that bucket to your <b>friend's MinIO every 3 h</b>. Encryption sits below the backup, so it's ciphertext throughout.</li>
+      <li><b>MinIO app data</b> — ownCloud, immich, etc. write straight into MinIO and are <i>not</i> encrypted at rest. A separate CronJob uses <b>rclone crypt</b> (key: <code>offsite-crypt</code>) to encrypt contents <b>and object names</b> client-side, then sync every bucket to your friend <b>every 6 h</b>. <b>Jellyfin is excluded</b> (re-acquirable media), as is the already-encrypted <code>longhorn-backups</code> — both configurable via <code>EXCLUDE_BUCKETS</code>.</li>
     </ol>
-    <div class="note ok"><b>Why your friend can't read it:</b> privacy comes from your
-      <code>longhorn-crypto</code> passphrase, not his MinIO permissions. He hosts ciphertext only.</div>
+    <div class="note ok"><b>Why your friend can't read either:</b> privacy comes from your two
+      passphrases (<code>longhorn-crypto</code>, <code>offsite-crypt</code>), not his MinIO permissions.
+      He hosts opaque, scrambled-name blobs only.</div>
 
     <h3>What you must <span class="accent">escrow off-site</span></h3>
     <p class="muted">The repo rebuilds the cluster, but these git-ignored items can't be regenerated:</p>
     <table>
       <thead><tr><th>Item</th><th>File</th><th>Why it's critical</th></tr></thead>
       <tbody>
-        <tr><td><b>longhorn-crypto passphrase</b></td><td class="mono">longhorn-crypto-secret.yaml</td><td>Decrypts every backup. No passphrase = data gone forever.</td></tr>
+        <tr><td><b>longhorn-crypto passphrase</b></td><td class="mono">longhorn-crypto-secret.yaml</td><td>Decrypts the pod-volume backups. No passphrase = data gone forever.</td></tr>
+        <tr><td><b>offsite-crypt passphrase</b></td><td class="mono">offsite-crypt-secret.yaml</td><td>Decrypts the MinIO app-data backups (ownCloud, immich…). Independent of longhorn-crypto.</td></tr>
         <tr><td>Friend's MinIO creds</td><td class="mono">offsite-replication-secret.yaml</td><td>How you reach the off-site copy.</td></tr>
         <tr><td>Proxmox API token</td><td class="mono">proxmox/terraform.tfvars</td><td>Rebuilds VMs/LXCs (re-issuable from the PVE UI).</td></tr>
         <tr><td>App secrets</td><td class="mono">*-secret.yaml</td><td>MinIO root, PostgreSQL, Pelican — mostly re-settable.</td></tr>
@@ -516,7 +521,7 @@
     </table>
     <div class="note ok"><b>Your escrow plan:</b> Bitwarden, synced across all your devices.
       For the home server's data to be unrecoverable, every one of your devices would have to die too —
-      a safe bet. Keep the <code>longhorn-crypto</code> passphrase there above all else.</div>
+      a safe bet. Keep <b>both</b> crypto passphrases there above all else.</div>
 
     <h3>Rebuild on a <span class="accent">new server</span></h3>
     <ol class="steps">
