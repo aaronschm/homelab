@@ -1,0 +1,86 @@
+# Off-site, CLIENT-SIDE-ENCRYPTED replication of the MinIO *application* buckets
+# (ownCloud, immich, …) to your friend's MinIO.
+#
+# Unlike longhorn-backups (already LUKS-encrypted by Longhorn), app data is
+# written straight into MinIO and is NOT encrypted at rest. So here we encrypt
+# during replication with `rclone crypt`: object CONTENTS and NAMES are encrypted
+# with YOUR passphrase before they ever reach your friend. He stores opaque blobs
+# with scrambled names and cannot read them.
+#
+# Buckets are auto-discovered. Everything is replicated EXCEPT the names in
+# EXCLUDE_BUCKETS (default: jellyfin + longhorn-backups). Jellyfin is media you
+# can re-acquire, so it is intentionally not backed up off-site.
+#
+# Secrets used:
+#   minio-root           -> local MinIO creds (source)
+#   offsite-replication  -> friend's endpoint + access/secret key
+#   offsite-crypt        -> rclone crypt passphrase/salt + the friend's app-data bucket
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: minio-appdata-offsite
+  namespace: minio
+spec:
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: rclone
+              image: rclone/rclone:1.69.1
+              envFrom:
+                - secretRef:
+                    name: minio-root
+                - secretRef:
+                    name: offsite-replication
+                - secretRef:
+                    name: offsite-crypt
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  PW=$(rclone obscure "$RCLONE_CRYPT_PASSWORD")
+                  mkdir -p /root/.config/rclone
+                  {
+                    echo "[local]"
+                    echo "type = s3"
+                    echo "provider = Minio"
+                    echo "access_key_id = $MINIO_ROOT_USER"
+                    echo "secret_access_key = $MINIO_ROOT_PASSWORD"
+                    echo "endpoint = http://minio.minio.svc:9000"
+                    echo "force_path_style = true"
+                    echo
+                    echo "[offsite]"
+                    echo "type = s3"
+                    echo "provider = Minio"
+                    echo "access_key_id = $OFFSITE_ACCESS_KEY"
+                    echo "secret_access_key = $OFFSITE_SECRET_KEY"
+                    echo "endpoint = $OFFSITE_ENDPOINT"
+                    echo "force_path_style = true"
+                    echo
+                    echo "[crypt]"
+                    echo "type = crypt"
+                    echo "remote = offsite:$OFFSITE_APPDATA_BUCKET"
+                    echo "password = $PW"
+                  } > /root/.config/rclone/rclone.conf
+                  if [ -n "$RCLONE_CRYPT_SALT" ]; then
+                    SALT=$(rclone obscure "$RCLONE_CRYPT_SALT")
+                    echo "password2 = $SALT" >> /root/.config/rclone/rclone.conf
+                  fi
+                  EXCLUDES="${EXCLUDE_BUCKETS:-jellyfin longhorn-backups}"
+                  echo "excluding buckets: $EXCLUDES"
+                  for b in $(rclone lsf local: --dirs-only | sed 's#/##'); do
+                    skip=0
+                    for e in $EXCLUDES; do [ "$b" = "$e" ] && skip=1; done
+                    if [ "$skip" = "1" ]; then echo "skip $b"; continue; fi
+                    echo "encrypting + syncing bucket '$b' -> friend (ciphertext)"
+                    rclone sync "local:$b" "crypt:$b" --transfers 4 --fast-list
+                  done
+                  echo "encrypted app-data off-site replication complete"

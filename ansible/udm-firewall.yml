@@ -33,6 +33,7 @@
         url: "{{ udm_host }}/api/auth/login"
         method: POST
         body_format: json
+        follow_redirects: all
         body:
           username: "{{ udm_username }}"
           password: "{{ udm_password }}"

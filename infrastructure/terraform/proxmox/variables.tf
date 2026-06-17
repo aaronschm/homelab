@@ -25,6 +25,11 @@ variable "pve_ssh_username" {
   default     = "root"
 }
 
+variable "pve_ssh_private_key_file" {
+  type    = string
+  default = "~/.ssh/id_ceres_pve"
+}
+
 variable "pve_node" {
   description = "Name of the Proxmox node to deploy onto (e.g. pve)."
   type        = string

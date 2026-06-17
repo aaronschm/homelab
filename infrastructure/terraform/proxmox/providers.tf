@@ -12,5 +12,6 @@ provider "proxmox" {
   ssh {
     agent    = true
     username = var.pve_ssh_username
+    private_key = file(var.pve_ssh_private_key_file)
   }
 }
