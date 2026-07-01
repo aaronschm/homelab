@@ -127,7 +127,7 @@
           enabled: true
           action: "ALLOW"
           protocol: "{{ item.proto | upper }}"
-          ipVersion: "IPv4"
+          ip_version: "v4"
           schedule:
             mode: "ALWAYS"
           source:
