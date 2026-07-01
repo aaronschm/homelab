@@ -93,7 +93,7 @@ resource "proxmox_virtual_environment_vm" "gameserver" {
     interface    = "scsi0"
     size         = each.value.disk_gb
     file_format  = "raw"
-    file_id      = proxmox_virtual_environment_download_file.debian[0].id
+    file_id      = proxmox_download_file.debian[0].id
   }
 
   network_device {

@@ -13,7 +13,7 @@ install_disk       = "/dev/sda"
 #   scsi2 -> /dev/sdc -> /var/mnt/alpha    (MinIO/local-path, on alpha)
 worker_data_disks = [
   { storage = "beta", size_gb = 400, mountpoint = "/var/mnt/longhorn" },
-  { storage = "alpha-zfs", size_gb = 1000, mountpoint = "/var/mnt/alpha" },
+  { storage = "alpha", size_gb = 1000, mountpoint = "/var/mnt/alpha" },
 ]
 
 # Registry LXC acting as a pull-through mirror for the dark Cluster VLAN.

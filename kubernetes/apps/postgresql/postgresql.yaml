@@ -3,6 +3,44 @@ kind: Namespace
 metadata:
   name: postgresql
 ---
+# Per-app database and role definitions. PostgreSQL's docker-entrypoint runs
+# scripts in /docker-entrypoint-initdb.d/ on first start (empty PGDATA). On
+# subsequent starts the script is a no-op because of the IF NOT EXISTS guards.
+# To re-run after the cluster is already initialized, exec into the pod:
+#   kubectl exec -n postgresql postgresql-0 -- bash /docker-entrypoint-initdb.d/init-app-databases.sh
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-init-databases
+  namespace: postgresql
+data:
+  init-app-databases.sh: |
+    #!/bin/bash
+    set -e
+
+    # Each APP_DATABASES entry is "role:password". The role name doubles as the
+    # database name (e.g. "pelican:s3cur3" → role pelican, database pelican).
+    for entry in $APP_DATABASES; do
+      db_name="${entry%%:*}"
+      db_pass="${entry#*:}"
+      echo "ensuring role + database '$db_name'..."
+      psql -v ON_ERROR_STOP=0 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<-EOSQL
+        DO \$\$
+        BEGIN
+          IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$db_name') THEN
+            CREATE ROLE $db_name LOGIN PASSWORD '$db_pass';
+          ELSE
+            ALTER ROLE $db_name PASSWORD '$db_pass';
+          END IF;
+        END
+        \$\$;
+        SELECT 'CREATE DATABASE $db_name OWNER $db_name'
+        WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$db_name')\gexec
+    EOSQL
+    done
+
+    echo "all application databases ready"
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -43,9 +81,16 @@ spec:
                   key: POSTGRES_DB
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+            - name: APP_DATABASES
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-credentials
+                  key: APP_DATABASES
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "postgres"]
@@ -57,6 +102,11 @@ spec:
               memory: 256Mi
             limits:
               memory: 1Gi
+      volumes:
+        - name: init-script
+          configMap:
+            name: postgresql-init-databases
+            defaultMode: 0755
   volumeClaimTemplates:
     - metadata:
         name: data

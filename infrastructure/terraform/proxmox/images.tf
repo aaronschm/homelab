@@ -14,9 +14,21 @@ locals {
   }
 }
 
+# State migration: renamed from the deprecated proxmox_virtual_environment_download_file.
+# Remove these moved blocks after the next successful `terraform apply`.
+moved {
+  from = proxmox_virtual_environment_download_file.talos
+  to   = proxmox_download_file.talos
+}
+
+moved {
+  from = proxmox_virtual_environment_download_file.debian
+  to   = proxmox_download_file.debian
+}
+
 # Talos nocloud image, downloaded onto the Proxmox node once and reused as the
 # import source for every Talos VM disk.
-resource "proxmox_virtual_environment_download_file" "talos" {
+resource "proxmox_download_file" "talos" {
   content_type            = "iso"
   datastore_id            = var.image_storage
   node_name               = var.pve_node
@@ -28,7 +40,7 @@ resource "proxmox_virtual_environment_download_file" "talos" {
 
 # Debian genericcloud image, used as the import source for non-Talos utility VMs
 # (e.g. the Pelican Wings gameserver). Imported directly via cloud-init.
-resource "proxmox_virtual_environment_download_file" "debian" {
+resource "proxmox_download_file" "debian" {
   count        = length(var.gameservers) > 0 ? 1 : 0
   content_type = "iso"
   datastore_id = var.image_storage

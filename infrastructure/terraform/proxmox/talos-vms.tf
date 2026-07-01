@@ -41,7 +41,7 @@ resource "proxmox_virtual_environment_vm" "controlplane" {
 
     # We transform "local:iso/..." into "local:import/..."
     # This satisfies Proxmox 8's requirement for disk imports.
-    file_id = proxmox_virtual_environment_download_file.talos.id
+    file_id = proxmox_download_file.talos.id
   }
 
   network_device {
@@ -112,7 +112,7 @@ resource "proxmox_virtual_environment_vm" "worker" {
 
     # We transform "local:iso/..." into "local:import/..."
     # This satisfies Proxmox 8's requirement for disk imports.
-    file_id = proxmox_virtual_environment_download_file.talos.id
+    file_id = proxmox_download_file.talos.id
   }
 
   # Optional data disks (scsi1, scsi2, ...) for Longhorn (beta) and MinIO (alpha).
