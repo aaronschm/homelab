@@ -3,7 +3,8 @@
 Having multiple VLANs allows segregation between servers and services, even on the same physical hardware.
 
 I use:
-- a **Management VLAN** (Proxmox API, registry mirror)
+- a **Trusted VLAN** for workstations / IaC clients
+- a **Server VLAN** (Proxmox API, registry mirror)
 - a **DMZ (De-Militarized Zone)** for public-facing ingress
 - a **Cluster VLAN** for the Talos Kubernetes nodes (dark — no internet)
 
@@ -14,18 +15,19 @@ The DMZ is isolated from the Cluster VLAN through firewall rules, ensuring that 
 ## **Requirements**
 
 - Managed **Layer 2 switch** with VLAN (802.1Q) support, plus a trunk port to the Proxmox host carrying VLANs 20/24/25.
-- **Layer 3 router / firewall** for inter-VLAN routing — here a **UDM Pro** (UniFi Network 10.4.57, Zone-Based Firewall).
+- **Layer 3 router / firewall** for inter-VLAN routing — here a **UDM Pro** (UniFi Network 10.x, Zone-Based Firewall).
 - The Proxmox bridge `vmbr0` must be **VLAN-aware** so per-VM/CT VLAN tags work.
 
 ## **Network Layout**
 
 | VLAN | Name | Subnet | Description | Internet Access |
 | :--- | :--- | :--- | :--- | :--- |
-| **20** | **Management** | `10.10.20.0/24` | Proxmox host, Registry (Zot) mirror | **YES** |
+| **10** | **Trusted** | `10.10.10.0/24` | Workstations, IaC client | **YES** |
+| **20** | **Server** | `10.10.20.0/24` | Proxmox host, Registry (Zot) mirror | **YES** |
 | **24** | **DMZ** | `10.10.24.0/24` | Traefik reverse proxy (`10.10.24.10`) | **YES** |
 | **25** | **Cluster** | `10.10.25.0/24` | Talos control plane + worker (dark VLAN) | **NO** |
 
-> The workstation that runs the IaC sits on VLAN 10/20 and needs access to the Proxmox API (8006), the Talos API (50000), and the Kubernetes API (6443).
+> The workstation that runs the IaC sits on VLAN 10 (Trusted) and needs access to the Proxmox API (8006), the Talos API (50000), and the Kubernetes API (6443).
 
 ## **IP Assignments**
 

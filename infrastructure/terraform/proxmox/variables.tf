@@ -78,13 +78,14 @@ variable "enable_vlan_tagging" {
 }
 
 # VLAN plan mirrors README.md / docs/network-setup.md
+# Keys are internal aliases; UDM zone names are Trusted/Server/DMZ/Cluster.
 variable "vlans" {
   description = "VLAN id -> gateway map."
   type        = map(string)
   default = {
-    mgmt    = "10.10.20.1" # VLAN 20
-    dmz     = "10.10.24.1" # VLAN 24
-    cluster = "10.10.25.1" # VLAN 25
+    mgmt    = "10.10.20.1" # VLAN 20 – Server
+    dmz     = "10.10.24.1" # VLAN 24 – DMZ
+    cluster = "10.10.25.1" # VLAN 25 – Cluster
   }
 }
 

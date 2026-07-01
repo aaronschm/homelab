@@ -1,57 +1,58 @@
-# Inter-VLAN firewall policies for the homelab IaC flow, in Zone-Based Firewall
-# terms (UniFi Network 9.0+ / your 10.4.57).
+# Inter-VLAN firewall policies for the homelab.
 #
-# IMPORTANT: zone_id values are specific to YOUR controller. Run the playbook in
-# discovery mode first (no -e udm_apply) to print your zones, then paste the
-# matching "_id" values below. Typical zones: Internal, External, DMZ, Gateway,
-# plus any custom zone you create per VLAN.
+# zone_names maps a short alias (used in rules below) to the EXACT zone name
+# shown in your UniFi UI (Settings → Zones). The playbook fetches the zone
+# list from the controller API and resolves names → IDs automatically.
+# No hex IDs needed.
 #
 # Reference of the VLAN layout (from docs/network-setup.md):
 vlans:
-  workstation: { id: 10, subnet: "10.10.10.0/24" }
-  mgmt:        { id: 20, subnet: "10.10.20.0/24" }
-  dmz:         { id: 24, subnet: "10.10.24.0/24" }
-  cluster:     { id: 25, subnet: "10.10.25.0/24" }
+  trusted: { id: 10, subnet: "10.10.10.0/24" }
+  server:  { id: 20, subnet: "10.10.20.0/24" }
+  dmz:     { id: 24, subnet: "10.10.24.0/24" }
+  cluster: { id: 25, subnet: "10.10.25.0/24" }
 
-# Fill these in from discovery output (zone "_id" strings):
-zone_ids:
-  workstation: "REPLACE_ME"
-  mgmt:        "REPLACE_ME"
-  dmz:         "REPLACE_ME"
-  cluster:     "REPLACE_ME"
+# Map short alias → exact UniFi zone name (case-sensitive).
+# If a name doesn't match, the playbook will fail with the list of available
+# zones so you can correct it.
+zone_names:
+  trusted: "Trusted"
+  server:  "Server"
+  dmz:     "DMZ"
+  cluster: "Cluster"
 
 firewall_rules:
   - name: "PC to Proxmox API"
-    src_zone_id: "{{ zone_ids.workstation }}"
-    dst_zone_id: "{{ zone_ids.mgmt }}"
+    src_zone: trusted
+    dst_zone: server
     dst_ips: ["10.10.20.0/24"]
     ports: [8006]
     proto: tcp
 
   - name: "PC to Talos API"
-    src_zone_id: "{{ zone_ids.workstation }}"
-    dst_zone_id: "{{ zone_ids.cluster }}"
+    src_zone: trusted
+    dst_zone: cluster
     dst_ips: ["10.10.25.0/24"]
     ports: [50000]
     proto: tcp
 
   - name: "PC to Kubernetes API"
-    src_zone_id: "{{ zone_ids.workstation }}"
-    dst_zone_id: "{{ zone_ids.cluster }}"
+    src_zone: trusted
+    dst_zone: cluster
     dst_ips: ["10.10.25.11"]
     ports: [6443]
     proto: tcp
 
   - name: "Cluster to Registry mirror"
-    src_zone_id: "{{ zone_ids.cluster }}"
-    dst_zone_id: "{{ zone_ids.mgmt }}"
+    src_zone: cluster
+    dst_zone: server
     dst_ips: ["10.10.20.101"]
     ports: [5000]
     proto: tcp
 
   - name: "Traefik to Cluster ingress"
-    src_zone_id: "{{ zone_ids.dmz }}"
-    dst_zone_id: "{{ zone_ids.cluster }}"
+    src_zone: dmz
+    dst_zone: cluster
     dst_ips: ["10.10.25.0/24"]
     ports: [80, 443]
     proto: tcp

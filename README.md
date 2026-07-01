@@ -14,7 +14,8 @@ prerequisites, and migration notes. For an interactive overview, open
 
 | VLAN | Name | Subnet | Role | Internet |
 |------|------|--------|------|----------|
-| 20 | Management | `10.10.20.0/24` | Registry LXC, DMZ Traefik mgmt | Yes |
+| 10 | Trusted | `10.10.10.0/24` | Workstations, IaC client | Yes |
+| 20 | Server | `10.10.20.0/24` | Registry LXC, Proxmox API | Yes |
 | 24 | DMZ | `10.10.24.0/24` | Traefik reverse proxy | Yes |
 | 25 | Cluster | `10.10.25.0/24` | Talos control plane + worker | No (dark) |
 

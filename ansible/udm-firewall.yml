@@ -8,15 +8,15 @@
 # on the internal v2 API, which authenticates with a login session (cookie +
 # CSRF token). Create a local-only admin in the UniFi UI (see ansible/README.md).
 #
-# Two modes:
-#   1. DISCOVER (default, read-only): dumps your zones + existing policies so you
-#      can copy the zone IDs into vars/firewall-rules.yml.
-#        ansible-playbook -i inventory.ini udm-firewall.yml
-#   2. APPLY: create the policies defined in vars/firewall-rules.yml.
-#        ansible-playbook -i inventory.ini udm-firewall.yml -e udm_apply=true
+# Usage:
+#   ansible-playbook -i inventory.ini udm-firewall.yml               # dry-run (show zones + policies)
+#   ansible-playbook -i inventory.ini udm-firewall.yml -e udm_apply=true  # create missing policies
+#
+# Zone IDs are resolved automatically from the zone names defined in
+# vars/firewall-rules.yml — no manual hex string copying needed.
 #
 # NOTE: this playbook manages FIREWALL POLICIES only. You still create the VLAN
-# networks (20/24/25) in the UniFi UI first — see ansible/README.md.
+# networks (10/20/24/25) in the UniFi UI first — see ansible/README.md.
 
 - name: Configure UDM Pro Zone-Based Firewall
   hosts: udm
@@ -57,7 +57,7 @@
           Accept: "application/json"
         validate_certs: "{{ udm_verify_ssl }}"
         status_code: [200]
-      register: zones
+      register: zones_raw
 
     - name: Fetch existing firewall policies
       ansible.builtin.uri:
@@ -71,13 +71,56 @@
         status_code: [200]
       register: policies
 
-    - name: Show discovered zones (map names -> _id for vars/firewall-rules.yml)
-      ansible.builtin.debug:
-        msg: "{{ zones.json | default(zones.content) }}"
+    # Build a name→id lookup dict from the zones API response.
+    - name: Build zone name → ID map
+      ansible.builtin.set_fact:
+        zone_id_map: >-
+          {{ dict(
+               (zones_raw.json.data | default(zones_raw.json | default([])))
+               | map(attribute='name')
+               | zip(
+                   (zones_raw.json.data | default(zones_raw.json | default([])))
+                   | map(attribute='_id')
+                 )
+             ) }}
 
-    - name: Show existing policies
+    - name: Show zone name → ID mapping
       ansible.builtin.debug:
-        msg: "{{ policies.json | default(policies.content) }}"
+        msg: "{{ zone_id_map }}"
+
+    - name: Show existing policy names
+      ansible.builtin.debug:
+        msg: "{{ (policies.json.data | default(policies.json | default([]))) | map(attribute='name') | list }}"
+
+    # Resolve human-readable zone names to hex IDs.
+    - name: Resolve zone names used in firewall rules
+      ansible.builtin.set_fact:
+        resolved_zone_ids: >-
+          {{ dict(
+               zone_names.values()
+               | map('regex_replace', '^(.*)$', '\1')
+               | zip(
+                   zone_names.values()
+                   | map('extract', zone_id_map)
+                 )
+             ) }}
+      vars:
+        # Flatten zone_names values to look up
+        _keys: "{{ zone_names.keys() | list }}"
+
+    - name: Validate all zone names resolved
+      ansible.builtin.assert:
+        that:
+          - zone_id_map[item.value] is defined
+        fail_msg: >-
+          Zone name '{{ item.value }}' (used as {{ item.key }}) not found on
+          the controller. Available zones: {{ zone_id_map.keys() | list }}.
+          Check that the name in vars/firewall-rules.yml matches exactly
+          (case-sensitive) what you see in the UniFi UI under Settings → Zones.
+        quiet: true
+      loop: "{{ zone_names | dict2items }}"
+      loop_control:
+        label: "{{ item.key }} → {{ item.value }}"
 
     - name: Stop here unless apply mode is requested
       ansible.builtin.meta: end_play
@@ -85,8 +128,7 @@
 
     # --- APPLY MODE -------------------------------------------------------
     # Body matches the schema discovered from UniFi Network 10.x ZBF API.
-    # Required fields that the controller rejects as null: ipVersion, schedule.
-    # Ports are a comma-separated string (not an array).
+    # Required fields: ipVersion, schedule. Ports = comma-separated string.
     - name: Create missing zone-based firewall policies
       ansible.builtin.uri:
         url: "{{ api_base }}/firewall-policies"
@@ -105,11 +147,11 @@
           schedule:
             mode: "ALWAYS"
           source:
-            zone_id: "{{ item.src_zone_id }}"
+            zone_id: "{{ zone_id_map[zone_names[item.src_zone]] }}"
             matching_target: "ANY"
             matching_target_type: "ANY"
           destination:
-            zone_id: "{{ item.dst_zone_id }}"
+            zone_id: "{{ zone_id_map[zone_names[item.dst_zone]] }}"
             matching_target: "IP"
             matching_target_type: "SPECIFIC"
             ips: "{{ item.dst_ips | default([]) }}"
