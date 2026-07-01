@@ -28,14 +28,14 @@ variable "kubernetes_version" {
   description = "Kubernetes version Talos should install."
   type        = string
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  default     = "v1.34.1"
+  default = "v1.34.1"
 }
 
 variable "talos_version" {
   description = "Talos machine config contract version, e.g. v1.13.4"
   type        = string
   # renovate: datasource=github-releases depName=siderolabs/talos
-  default     = "v1.13.4"
+  default = "v1.13.4"
 }
 
 variable "install_disk" {

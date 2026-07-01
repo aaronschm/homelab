@@ -10,8 +10,8 @@ provider "proxmox" {
   # Required so the provider can upload cloud-init snippets and import disk
   # images over SSH to the node. Uses the SSH agent by default.
   ssh {
-    agent    = true
-    username = var.pve_ssh_username
+    agent       = true
+    username    = var.pve_ssh_username
     private_key = file(var.pve_ssh_private_key_file)
   }
 }

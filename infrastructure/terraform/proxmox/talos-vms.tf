@@ -35,20 +35,28 @@ resource "proxmox_virtual_environment_vm" "controlplane" {
 
   disk {
     datastore_id = var.vm_storage
-    import_from  = proxmox_virtual_environment_download_file.talos.id
     interface    = "scsi0"
     size         = each.value.disk_gb
+    file_format  = "raw"
+
+    # We transform "local:iso/..." into "local:import/..."
+    # This satisfies Proxmox 8's requirement for disk imports.
+    file_id = proxmox_virtual_environment_download_file.talos.id
   }
 
   network_device {
     bridge  = var.network_bridge
-    vlan_id = local.vlan_id["cluster"]
+    vlan_id = var.enable_vlan_tagging ? local.vlan_id["cluster"] : null
   }
 
   # Talos ignores cloud-init for app config but uses it for the static IP via
   # the nocloud datasource until the machine config takes over.
   initialization {
     datastore_id = var.vm_storage
+    dns {
+      servers = [var.vlans["cluster"]]
+    }
+
     ip_config {
       ipv4 {
         address = each.value.ip
@@ -62,7 +70,7 @@ resource "proxmox_virtual_environment_vm" "controlplane" {
   }
 
   lifecycle {
-    ignore_changes = [disk[0].import_from]
+    ignore_changes = [disk[0].file_id]
   }
 }
 
@@ -98,9 +106,13 @@ resource "proxmox_virtual_environment_vm" "worker" {
 
   disk {
     datastore_id = var.vm_storage
-    import_from  = proxmox_virtual_environment_download_file.talos.id
     interface    = "scsi0"
     size         = each.value.disk_gb
+    file_format  = "raw"
+
+    # We transform "local:iso/..." into "local:import/..."
+    # This satisfies Proxmox 8's requirement for disk imports.
+    file_id = proxmox_virtual_environment_download_file.talos.id
   }
 
   # Optional data disks (scsi1, scsi2, ...) for Longhorn (beta) and MinIO (alpha).
@@ -116,11 +128,15 @@ resource "proxmox_virtual_environment_vm" "worker" {
 
   network_device {
     bridge  = var.network_bridge
-    vlan_id = local.vlan_id["cluster"]
+    vlan_id = var.enable_vlan_tagging ? local.vlan_id["cluster"] : null
   }
 
   initialization {
     datastore_id = var.vm_storage
+    dns {
+      servers = [var.vlans["cluster"]]
+    }
+
     ip_config {
       ipv4 {
         address = each.value.ip
@@ -134,6 +150,6 @@ resource "proxmox_virtual_environment_vm" "worker" {
   }
 
   lifecycle {
-    ignore_changes = [disk[0].import_from]
+    ignore_changes = [disk[0].file_id]
   }
 }

@@ -102,7 +102,7 @@ variable "talos_version" {
   description = "Talos Linux version, e.g. v1.13.4"
   type        = string
   # renovate: datasource=github-releases depName=siderolabs/talos
-  default     = "v1.13.4"
+  default = "v1.13.4"
 }
 
 variable "talos_image_url" {

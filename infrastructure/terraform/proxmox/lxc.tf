@@ -39,6 +39,10 @@ resource "proxmox_virtual_environment_container" "this" {
     size         = each.value.disk_gb
   }
 
+  features {
+    nesting = true
+  }
+
   network_interface {
     name    = "eth0"
     bridge  = var.network_bridge

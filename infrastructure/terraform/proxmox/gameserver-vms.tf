@@ -70,7 +70,6 @@ resource "proxmox_virtual_environment_vm" "gameserver" {
   started = true
   on_boot = true
 
-  # Start last, after the cluster is up.
   startup {
     order    = 6
     up_delay = 5
@@ -91,19 +90,24 @@ resource "proxmox_virtual_environment_vm" "gameserver" {
 
   disk {
     datastore_id = var.vm_storage
-    import_from  = proxmox_virtual_environment_download_file.debian[0].id
     interface    = "scsi0"
     size         = each.value.disk_gb
+    file_format  = "raw"
+    file_id      = proxmox_virtual_environment_download_file.debian[0].id
   }
 
   network_device {
     bridge  = var.network_bridge
-    vlan_id = local.vlan_id[each.value.vlan_key]
+    vlan_id = var.enable_vlan_tagging ? local.vlan_id[each.value.vlan_key] : null
   }
 
   initialization {
     datastore_id      = var.vm_storage
     user_data_file_id = proxmox_virtual_environment_file.wings_cloudinit[each.key].id
+
+    dns {
+      servers = [var.vlans[each.value.vlan_key]]
+    }
 
     ip_config {
       ipv4 {
@@ -123,6 +127,6 @@ resource "proxmox_virtual_environment_vm" "gameserver" {
   }
 
   lifecycle {
-    ignore_changes = [disk[0].import_from]
+    ignore_changes = [disk[0].file_id]
   }
 }
