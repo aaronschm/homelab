@@ -92,35 +92,18 @@
       ansible.builtin.debug:
         msg: "{{ (policies.json.data | default(policies.json | default([]))) | map(attribute='name') | list }}"
 
-    # Resolve human-readable zone names to hex IDs.
-    - name: Resolve zone names used in firewall rules
-      ansible.builtin.set_fact:
-        resolved_zone_ids: >-
-          {{ dict(
-               zone_names.values()
-               | map('regex_replace', '^(.*)$', '\1')
-               | zip(
-                   zone_names.values()
-                   | map('extract', zone_id_map)
-                 )
-             ) }}
-      vars:
-        # Flatten zone_names values to look up
-        _keys: "{{ zone_names.keys() | list }}"
-
-    - name: Validate all zone names resolved
+    - name: Validate all referenced zone names exist on the controller
       ansible.builtin.assert:
         that:
-          - zone_id_map[item.value] is defined
+          - zone_id_map[item] is defined
         fail_msg: >-
-          Zone name '{{ item.value }}' (used as {{ item.key }}) not found on
-          the controller. Available zones: {{ zone_id_map.keys() | list }}.
-          Check that the name in vars/firewall-rules.yml matches exactly
-          (case-sensitive) what you see in the UniFi UI under Settings → Zones.
+          Zone '{{ item }}' not found on the controller.
+          Available zones: {{ zone_id_map.keys() | list }}.
+          Fix zone_names in vars/firewall-rules.yml (case-sensitive).
         quiet: true
-      loop: "{{ zone_names | dict2items }}"
+      loop: "{{ zone_names.values() | unique | list }}"
       loop_control:
-        label: "{{ item.key }} → {{ item.value }}"
+        label: "{{ item }}"
 
     - name: Stop here unless apply mode is requested
       ansible.builtin.meta: end_play
@@ -129,6 +112,7 @@
     # --- APPLY MODE -------------------------------------------------------
     # Body matches the schema discovered from UniFi Network 10.x ZBF API.
     # Required fields: ipVersion, schedule. Ports = comma-separated string.
+    # Source IPs are needed because multiple VLANs share the Internal zone.
     - name: Create missing zone-based firewall policies
       ansible.builtin.uri:
         url: "{{ api_base }}/firewall-policies"
@@ -148,8 +132,9 @@
             mode: "ALWAYS"
           source:
             zone_id: "{{ zone_id_map[zone_names[item.src_zone]] }}"
-            matching_target: "ANY"
-            matching_target_type: "ANY"
+            matching_target: "{{ 'IP' if item.src_ips | default([]) | length > 0 else 'ANY' }}"
+            matching_target_type: "{{ 'SPECIFIC' if item.src_ips | default([]) | length > 0 else 'ANY' }}"
+            ips: "{{ item.src_ips | default([]) }}"
           destination:
             zone_id: "{{ zone_id_map[zone_names[item.dst_zone]] }}"
             matching_target: "IP"

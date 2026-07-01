@@ -1,9 +1,15 @@
 # Inter-VLAN firewall policies for the homelab.
 #
 # zone_names maps a short alias (used in rules below) to the EXACT zone name
-# shown in your UniFi UI (Settings → Zones). The playbook fetches the zone
-# list from the controller API and resolves names → IDs automatically.
-# No hex IDs needed.
+# on the controller. Your UDM uses the default UniFi zones — multiple networks
+# share a zone (e.g. Trusted/Server/Cluster are all "Internal"):
+#
+#   Internal  ← Trusted (10), Server (20), Cluster (25)
+#   Dmz       ← DMZ (24)
+#   External  ← WAN
+#
+# Because multiple VLANs share the Internal zone, rules MUST include src_ips
+# and dst_ips for specificity — otherwise a zone-level ALLOW would be too broad.
 #
 # Reference of the VLAN layout (from docs/network-setup.md):
 vlans:
@@ -13,18 +19,17 @@ vlans:
   cluster: { id: 25, subnet: "10.10.25.0/24" }
 
 # Map short alias → exact UniFi zone name (case-sensitive).
-# If a name doesn't match, the playbook will fail with the list of available
-# zones so you can correct it.
 zone_names:
-  trusted: "Trusted"
-  server:  "Server"
-  dmz:     "DMZ"
-  cluster: "Cluster"
+  trusted: "Internal"
+  server:  "Internal"
+  dmz:     "Dmz"
+  cluster: "Internal"
 
 firewall_rules:
   - name: "PC to Proxmox API"
     src_zone: trusted
     dst_zone: server
+    src_ips: ["10.10.10.0/24"]
     dst_ips: ["10.10.20.0/24"]
     ports: [8006]
     proto: tcp
@@ -32,6 +37,7 @@ firewall_rules:
   - name: "PC to Talos API"
     src_zone: trusted
     dst_zone: cluster
+    src_ips: ["10.10.10.0/24"]
     dst_ips: ["10.10.25.0/24"]
     ports: [50000]
     proto: tcp
@@ -39,6 +45,7 @@ firewall_rules:
   - name: "PC to Kubernetes API"
     src_zone: trusted
     dst_zone: cluster
+    src_ips: ["10.10.10.0/24"]
     dst_ips: ["10.10.25.11"]
     ports: [6443]
     proto: tcp
@@ -46,6 +53,7 @@ firewall_rules:
   - name: "Cluster to Registry mirror"
     src_zone: cluster
     dst_zone: server
+    src_ips: ["10.10.25.0/24"]
     dst_ips: ["10.10.20.101"]
     ports: [5000]
     proto: tcp
@@ -53,6 +61,7 @@ firewall_rules:
   - name: "Traefik to Cluster ingress"
     src_zone: dmz
     dst_zone: cluster
+    src_ips: ["10.10.24.10"]
     dst_ips: ["10.10.25.0/24"]
     ports: [80, 443]
     proto: tcp
