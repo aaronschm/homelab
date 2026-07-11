@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authentik-worker
+  namespace: authentik
+  labels:
+    app: authentik-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authentik-worker
+  template:
+    metadata:
+      labels:
+        app: authentik-worker
+    spec:
+      containers:
+        - name: authentik-worker
+          image: ghcr.io/goauthentik/server:2024.4.2
+          args: ["worker"]
+          envFrom:
+            - secretRef:
+                name: authentik-env
+          volumeMounts:
+            - name: media
+              mountPath: /media
+            - name: templates
+              mountPath: /templates
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: authentik-media
+        - name: templates
+          persistentVolumeClaim:
+            claimName: authentik-templates

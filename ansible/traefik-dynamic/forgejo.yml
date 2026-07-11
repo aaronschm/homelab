@@ -1,0 +1,14 @@
+http:
+  routers:
+    forgejo:
+      rule: "Host(`forgejo.isarcloud.local`)"
+      service: "forgejo-svc"
+      entryPoints: ["websecure"]
+      tls:
+        certResolver: letsencrypt
+  services:
+    forgejo-svc:
+      loadBalancer:
+        servers:
+          # Pointing directly to the new Forgejo LXC on VLAN 20
+          - url: "http://10.10.20.80:3000"

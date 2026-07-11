@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: authentik
+
+resources:
+  - namespace.yaml
+  - authentik-pvc.yaml
+  - authentik-secret.example.yaml # In reality, use your kubeseal sealed-secret here
+  - authentik-server.yaml
+  - authentik-worker.yaml
+  - authentik-service.yaml

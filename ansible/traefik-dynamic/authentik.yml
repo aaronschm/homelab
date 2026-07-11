@@ -1,0 +1,15 @@
+http:
+  routers:
+    authentik:
+      rule: "Host(`auth.isarcloud.local`)"
+      service: "authentik-svc"
+      entryPoints: ["websecure"]
+      tls:
+        certResolver: letsencrypt
+  services:
+    authentik-svc:
+      loadBalancer:
+        servers:
+          # Pointing to the NodePort defined in authentik-service.yaml
+          # Assuming 10.10.25.101 is your Talos worker node IP
+          - url: "http://10.10.25.101:30090"

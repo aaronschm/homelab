@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authentik-server
+  namespace: authentik
+  labels:
+    app: authentik-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authentik-server
+  template:
+    metadata:
+      labels:
+        app: authentik-server
+    spec:
+      containers:
+        - name: authentik-server
+          image: ghcr.io/goauthentik/server:2024.4.2
+          args: ["server"]
+          envFrom:
+            - secretRef:
+                name: authentik-env
+          ports:
+            - containerPort: 9000
+              name: http
+            - containerPort: 9443
+              name: https
+          volumeMounts:
+            - name: media
+              mountPath: /media
+            - name: templates
+              mountPath: /templates
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: authentik-media
+        - name: templates
+          persistentVolumeClaim:
+            claimName: authentik-templates

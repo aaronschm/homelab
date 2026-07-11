@@ -1,0 +1,69 @@
+---
+- name: Deploy Forgejo on LXC
+  hosts: forgejo
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Ensure curl is installed
+      ansible.builtin.apt:
+        name: curl
+        state: present
+        update_cache: true
+
+    - name: Install Docker engine
+      ansible.builtin.shell: |
+        set -e
+        if ! command -v docker >/dev/null 2>&1; then
+          curl -fsSL https://get.docker.com | sh
+        fi
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Ensure Docker is enabled and running
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Create Forgejo directory
+      ansible.builtin.file:
+        path: /opt/forgejo
+        state: directory
+        mode: "0755"
+
+    - name: Create docker-compose.yml for Forgejo
+      ansible.builtin.copy:
+        dest: /opt/forgejo/docker-compose.yml
+        content: |
+          version: '3'
+
+          networks:
+            forgejo:
+              external: false
+
+          services:
+            server:
+              image: codeberg.org/forgejo/forgejo:1.22
+              container_name: forgejo
+              environment:
+                - USER_UID=1000
+                - USER_GID=1000
+              restart: always
+              networks:
+                - forgejo
+              volumes:
+                - ./data:/data
+                - /etc/timezone:/etc/timezone:ro
+                - /etc/localtime:/etc/localtime:ro
+              ports:
+                - "3000:3000"
+                - "2222:22"
+        mode: "0644"
+
+    - name: Start Forgejo via Docker Compose
+      ansible.builtin.command:
+        cmd: docker compose -f /opt/forgejo/docker-compose.yml up -d
+      register: compose_up
+      changed_when: "'Started' in compose_up.stderr or 'Created' in compose_up.stderr"
