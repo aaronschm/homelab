@@ -39,9 +39,10 @@ resource "proxmox_virtual_environment_vm" "controlplane" {
     size         = each.value.disk_gb
     file_format  = "raw"
 
-    # We transform "local:iso/..." into "local:import/..."
-    # This satisfies Proxmox 8's requirement for disk imports.
-    file_id = proxmox_download_file.talos.id
+    # import_from uses the Proxmox API import endpoint (no SSH required).
+    # Requires the source storage (local) to have 'import' content type,
+    # and proxmox_download_file to use content_type = "import".
+    import_from = proxmox_download_file.talos.id
   }
 
   network_device {
@@ -70,7 +71,7 @@ resource "proxmox_virtual_environment_vm" "controlplane" {
   }
 
   lifecycle {
-    ignore_changes = [disk[0].file_id]
+    ignore_changes = [disk[0].import_from]
   }
 }
 
@@ -110,9 +111,8 @@ resource "proxmox_virtual_environment_vm" "worker" {
     size         = each.value.disk_gb
     file_format  = "raw"
 
-    # We transform "local:iso/..." into "local:import/..."
-    # This satisfies Proxmox 8's requirement for disk imports.
-    file_id = proxmox_download_file.talos.id
+    # import_from uses the Proxmox API import endpoint (no SSH required).
+    import_from = proxmox_download_file.talos.id
   }
 
   # Optional data disks (scsi1, scsi2, ...) for Longhorn (beta) and MinIO (alpha).
@@ -150,6 +150,6 @@ resource "proxmox_virtual_environment_vm" "worker" {
   }
 
   lifecycle {
-    ignore_changes = [disk[0].file_id]
+    ignore_changes = [disk[0].import_from]
   }
 }

@@ -73,3 +73,7 @@ variable "worker_nodes" {
     "25101" = "10.10.25.101"
   }
 }
+variable "ntp_server" {
+  type    = string
+  default = "10.10.20.2"
+}

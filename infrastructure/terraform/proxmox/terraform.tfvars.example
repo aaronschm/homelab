@@ -19,6 +19,7 @@ vm_storage     = "beta"
 ct_storage     = "beta"
 image_storage  = "local"
 network_bridge = "vmbr0"
+enable_vlan_tagging = false
 
 ssh_public_keys = [
   "ssh-ed25519 AAAA... you@admin",
@@ -31,18 +32,18 @@ ssh_public_keys = [
 #     curl -X POST --data-binary @schematic.yaml \
 #       https://factory.talos.dev/schematics    (see docs/proxmox-iac.md)
 talos_version   = "v1.13.4"
-talos_image_url = "https://factory.talos.dev/image/53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83/v1.13.4/nocloud-amd64.raw.gz"
+talos_image_url = "https://factory.talos.dev/image/3e8ddc65cdd9ee60859e0eed3dd9ca3cb79c43bc6d3376aa17c7186fbf93979d/v1.13.4/nocloud-amd64.raw.gz"
 
 # Debian 13 (trixie) LXC template — already on the node as:
 lxc_template = "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
 lxc_password = "change-me-then-rotate"
 
 controlplanes = {
-  "25011" = { vmid = 25011, ip = "10.10.25.11/24", cores = 2, memory = 6144, disk_gb = 50 }
+  "20011" = { vmid = 20011, ip = "10.10.20.11/24", cores = 2, memory = 6144, disk_gb = 50 }
 }
 
 workers = {
-  "25101" = { vmid = 25101, ip = "10.10.25.101/24", cores = 6, memory = 32768, disk_gb = 100 }
+  "20102" = { vmid = 20102, ip = "10.10.20.102/24", cores = 6, memory = 32768, disk_gb = 100 }
 }
 
 # Worker data disks (attached scsi1, scsi2, ... in this order).

@@ -20,9 +20,9 @@ worker_data_disks = [
 registry_mirror_endpoint = "http://10.10.20.101:5000"
 
 controlplane_nodes = {
-  "25011" = "10.10.25.11"
+  "20011" = "10.10.20.11"
 }
 
 worker_nodes = {
-  "25101" = "10.10.25.101"
+  "20102" = "10.10.20.102"
 }

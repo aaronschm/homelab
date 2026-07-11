@@ -1,0 +1,43 @@
+---
+# Configure the Proxmox host's chrony daemon to serve NTP to the Cluster VLAN.
+#
+# Proxmox ships chrony out of the box. By default it only syncs time for
+# itself and does not serve NTP to other hosts. This playbook adds an
+# `allow` directive so Talos nodes on VLAN 25 (10.10.25.0/24) can query it.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini proxmox-ntp.yml
+#
+# SSH key must be in your agent or specified with --private-key.
+# The Proxmox host uses the same SSH key pair as the VMs.
+
+- name: Configure Proxmox chrony as an NTP server for the Cluster VLAN
+  hosts: proxmox
+  gather_facts: false
+
+  tasks:
+    - name: Ensure chrony is installed
+      ansible.builtin.apt:
+        name: chrony
+        state: present
+        update_cache: false
+
+    - name: Allow NTP queries from the Cluster VLAN (10.10.25.0/24)
+      ansible.builtin.lineinfile:
+        path: /etc/chrony/chrony.conf
+        line: "allow 10.10.25.0/24"
+        regexp: "^allow 10\\.10\\.25\\.0/24"
+        state: present
+      notify: Restart chrony
+
+    - name: Ensure chrony is enabled and running
+      ansible.builtin.service:
+        name: chrony
+        enabled: true
+        state: started
+
+  handlers:
+    - name: Restart chrony
+      ansible.builtin.service:
+        name: chrony
+        state: restarted

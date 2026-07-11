@@ -19,12 +19,18 @@ KUBECONFIG_OUT := $(CURDIR)/kubeconfig
 TALOSCONFIG_OUT := $(CURDIR)/talosconfig
 ARGOCD_VERSION := stable
 
-.PHONY: all firewall infra cluster gitops kubeconfig secrets destroy
+.PHONY: all firewall infra cluster gitops kubeconfig secrets destroy proxy dns
 
 all: firewall infra cluster gitops secrets
 
+proxy:
+	ansible-playbook -i $(ANSIBLE_DIR)/inventory.ini $(ANSIBLE_DIR)/traefik.yml
+
+dns:
+	ansible-playbook -i $(ANSIBLE_DIR)/inventory.ini $(ANSIBLE_DIR)/adguard.yml
+
 firewall:
-	ansible-playbook -i $(ANSIBLE_DIR)/inventory.ini $(ANSIBLE_DIR)/udm-firewall.yml
+	ansible-playbook -i $(ANSIBLE_DIR)/inventory.ini $(ANSIBLE_DIR)/udm-firewall.yml -e udm_apply=true
 
 infra:
 	terraform -chdir=$(PROXMOX_DIR) init -input=false
@@ -44,7 +50,7 @@ kubeconfig:
 gitops: kubeconfig
 	KUBECONFIG=$(KUBECONFIG_OUT) kubectl create namespace argocd \
 		--dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -f -
-	KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -n argocd \
+	KUBECONFIG=$(KUBECONFIG_OUT) kubectl apply -n argocd --server-side --force-conflicts \
 		-f https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VERSION)/manifests/install.yaml
 	KUBECONFIG=$(KUBECONFIG_OUT) kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
 	@if [ -f ../kubernetes/bootstrap/repo-credentials-secret.yaml ]; then \

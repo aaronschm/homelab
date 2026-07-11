@@ -71,6 +71,11 @@
         status_code: [200]
       register: policies
 
+    - name: Save policies to file
+      ansible.builtin.copy:
+        content: "{{ policies.json | to_nice_json }}"
+        dest: policies.json
+
     # Build a name→id lookup dict from the zones API response.
     - name: Build zone name → ID map
       ansible.builtin.set_fact:
@@ -126,8 +131,8 @@
           name: "{{ item.name }}"
           enabled: true
           action: "ALLOW"
-          protocol: "{{ item.proto | upper }}"
-          ip_version: "v4"
+          protocol: "{{ item.proto | lower }}"
+          ip_version: "IPV4"
           schedule:
             mode: "ALWAYS"
           source:
@@ -140,8 +145,8 @@
             matching_target: "IP"
             matching_target_type: "SPECIFIC"
             ips: "{{ item.dst_ips | default([]) }}"
-            port_matching_type: "SPECIFIC"
-            port: "{{ item.ports | join(',') }}"
+            port_matching_type: "{{ 'SPECIFIC' if item.ports | default([]) | length > 0 else 'ANY' }}"
+            port: "{{ item.ports | join(',') if item.ports | default([]) | length > 0 else omit }}"
         validate_certs: "{{ udm_verify_ssl }}"
         status_code: [200, 201]
       loop: "{{ firewall_rules }}"

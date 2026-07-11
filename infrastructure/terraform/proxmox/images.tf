@@ -28,14 +28,15 @@ moved {
 
 # Talos nocloud image, downloaded onto the Proxmox node once and reused as the
 # import source for every Talos VM disk.
+# content_type = "import" stores to local:import/ and enables the API-based
+# disk import (import_from) which avoids SSH qm importdisk.
 resource "proxmox_download_file" "talos" {
-  content_type            = "iso"
-  datastore_id            = var.image_storage
-  node_name               = var.pve_node
-  url                     = var.talos_image_url
-  file_name               = "talos-${var.talos_version}-nocloud-amd64.img"
-  decompression_algorithm = "gz"
-  overwrite               = false
+  content_type = "import"
+  datastore_id = var.image_storage
+  node_name    = var.pve_node
+  url          = var.talos_image_url
+  file_name    = "talos-${var.talos_version}-nocloud-amd64.raw"
+  overwrite    = false
 }
 
 # Debian genericcloud image, used as the import source for non-Talos utility VMs

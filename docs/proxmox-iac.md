@@ -111,18 +111,22 @@ customization:
       - siderolabs/qemu-guest-agent
       - siderolabs/iscsi-tools
       - siderolabs/util-linux-tools
+      - siderolabs/amd-ucode
+      - siderolabs/amdgpu
+      - siderolabs/nfs-utils
+      - siderolabs/zfs
 EOF
 curl -X POST --data-binary @schematic.yaml https://factory.talos.dev/schematics
-# -> {"id":"53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83", ...}
+# -> {"id":"3e8ddc65cdd9ee60859e0eed3dd9ca3cb79c43bc6d3376aa17c7186fbf93979d", ...}
 ```
 
 Both yield the same ID for the same recipe — **already generated for you**:
-`53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83`
+`3e8ddc65cdd9ee60859e0eed3dd9ca3cb79c43bc6d3376aa17c7186fbf93979d`
 (qemu-guest-agent + iscsi-tools + util-linux-tools). The image URL Terraform
 downloads:
 
 ```
-https://factory.talos.dev/image/53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83/v1.13.4/nocloud-amd64.raw.gz
+https://factory.talos.dev/image/3e8ddc65cdd9ee60859e0eed3dd9ca3cb79c43bc6d3376aa17c7186fbf93979d/v1.13.4/nocloud-amd64.raw.gz
 ```
 
 The schematic ID is **not a secret** — it's a hash of the recipe — so it's fine
@@ -361,19 +365,29 @@ boots the LXCs/VMs in order → Talos rejoins → Argo CD reconciles to the repo
 
 `docs/network-setup.md` puts VLAN 25 on a **dark VLAN with no internet**. Talos
 and Kubernetes still need to pull container images (k8s components, your apps).
-The **Registry LXC (`10.10.20.101:5000`) acts as a pull-through mirror** running
-**Zot** (`ansible/registry-zot.yml`), and Talos is pointed at it via
-`registry_mirror_endpoint` (a `machine.registries.mirrors` patch covering
-docker.io, ghcr.io, registry.k8s.io, gcr.io, quay.io). This replaces the old
-apt-cacher "update server".
+**Zot** runs as a systemd service directly on the **Proxmox host (`10.10.20.2:5000`)**,
+acting as a pull-through mirror for docker.io, ghcr.io, registry.k8s.io, gcr.io,
+quay.io, and public.ecr.aws. Talos is pointed at it via `registry_mirror_endpoint`
+in `infrastructure/terraform/talos/terraform.tfvars`.
+
+Zot is installed at `/usr/local/bin/zot` with config at `/etc/zot/config.json`
+and storage at `/var/lib/zot-host`. The systemd unit (`zot.service`) is enabled,
+so it starts automatically on Proxmox boot.
+
+> **Why on the Proxmox host, not the Registry LXC:** VLAN 25 and VLAN 20 are in
+> the same UniFi "Internal" zone. The zone-based firewall's "Isolated Networks"
+> rule blocks same-zone inter-VLAN traffic before specific allow rules are
+> evaluated, making the LXC at 10.10.20.101 unreachable from cluster nodes.
+> The Proxmox host (10.10.20.2) is reachable because a specific "Cluster to
+> Proxmox NTP" rule exists, and the same path is used for the registry.
 
 > **Why Zot, not `registry:2`:** a plain `registry:2` can pull-through
-> **only one** upstream. Zot's `sync`
-> extension proxies **all five** upstreams on demand from a single endpoint.
-> Talos maps each registry name to the same Zot URL; Zot resolves the upstream
-> per request. Deploy with `ansible-playbook -i inventory.ini registry-zot.yml`
-> after `make infra`. (Alternatives considered: Harbor — heavier; multiple
-> `registry:2` instances — more moving parts.)
+> **only one** upstream. Zot's `sync` extension proxies **all six** upstreams
+> on demand from a single endpoint.
+
+> **Re-deploying after a Proxmox reinstall:** copy the `zot` binary, write
+> `/etc/zot/config.json` (see `ansible/files/zot-config.json` for the content),
+> create `/etc/systemd/system/zot.service` and run `systemctl enable --now zot`.
 
 Required firewall additions — **automated via Ansible against the UDM Pro**
 (`ansible/udm-firewall.yml`, rules in `ansible/vars/firewall-rules.yml`). Run it
@@ -384,7 +398,7 @@ once before `make all`:
 | PC (VLAN 10) | VLAN 20 (Proxmox) | TCP 8006 | Proxmox API |
 | PC (VLAN 10) | VLAN 25 nodes | TCP 50000 | Talos API (config/bootstrap) |
 | PC (VLAN 10) | VLAN 25 control plane | TCP 6443 | Kubernetes API |
-| VLAN 25 nodes | `10.10.20.101` | TCP 5000 | Registry pull-through mirror |
+| VLAN 25 nodes | `10.10.20.2` | TCP 5000 | Registry pull-through mirror (Proxmox host) |
 | `10.10.24.10` (Traefik) | VLAN 25 | TCP 80/443 | Ingress |
 
 > Your UDM runs **UniFi Network 10.4.57 → Zone-Based Firewall**. The playbook
@@ -413,7 +427,18 @@ once before `make all`:
 ## Things easy to overlook (raised for you)
 
 - **Dark-VLAN image pulls** — covered above; without the registry mirror the
-  cluster cannot start any pod. Biggest gotcha.
+  cluster cannot start any pod. Biggest gotcha. Mirror runs on the Proxmox host
+  (`10.10.20.2:5000`) as a systemd service, not on the Registry LXC.
+- **`talosctl bootstrap` is required after every clean cluster wipe.** Terraform's
+  `talos_machine_bootstrap` resource runs bootstrap once and tracks it in state.
+  If you destroy+recreate VMs (or lose state), run
+  `TALOSCONFIG=infrastructure/talosconfig talosctl --endpoints 10.10.25.11 bootstrap --nodes 10.10.25.11`
+  manually after `make cluster`. The `make all` Makefile target does not retry
+  bootstrap if Terraform state already exists.
+- **Talos image includes ZFS extension.** The factory schematic bakes in `ext-zfs-service`,
+  which loads the ZFS kernel module and imports pools on the worker node
+  (`/var/mnt/longhorn`, `/var/mnt/alpha`). On the control plane (no ZFS disks)
+  it stays in `Waiting` state forever — this is harmless and expected.
 - **No HA — by choice.** 1 CP + 1 worker means node loss = outage; that's
   accepted. etcd lives on the one CP, so **off-box backups still matter**:
   schedule etcd/Talos snapshots, and the Longhorn→MinIO→friend backup chain

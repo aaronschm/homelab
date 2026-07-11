@@ -18,6 +18,12 @@
   gather_facts: true
 
   tasks:
+    - name: Ensure curl is installed
+      ansible.builtin.apt:
+        name: curl
+        state: present
+        update_cache: true
+
     - name: Install Docker engine
       ansible.builtin.shell: |
         set -e

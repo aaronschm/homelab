@@ -109,7 +109,7 @@ variable "talos_version" {
 variable "talos_image_url" {
   description = <<-EOT
     URL to the Talos nocloud raw image for your factory schematic, e.g.
-    https://factory.talos.dev/image/<SCHEMATIC_ID>/<VERSION>/nocloud-amd64.raw.gz
+    https://factory.talos.dev/image/<SCHEMATIC_ID>/<VERSION>/nocloud-amd64.raw
     Build a schematic (add qemu-guest-agent) at https://factory.talos.dev.
   EOT
   type        = string

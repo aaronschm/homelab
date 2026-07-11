@@ -8,6 +8,14 @@ locals {
   endpoint_host    = local.use_vip ? var.cluster_vip : local.first_cp_ip
   cluster_endpoint = "https://${local.endpoint_host}:6443"
 
+  time_patch = {
+    machine = {
+      time = {
+        servers = [var.ntp_server != "" ? var.ntp_server : "10.10.20.2"]
+      }
+    }
+  }
+
   # Registry mirror so the dark Cluster VLAN (no internet) can still pull
   # container images via the Registry LXC on the Management VLAN.
   registry_patch = var.registry_mirror_endpoint == "" ? {} : {
@@ -19,6 +27,7 @@ locals {
           "registry.k8s.io" = { endpoints = [var.registry_mirror_endpoint] }
           "gcr.io"          = { endpoints = [var.registry_mirror_endpoint] }
           "quay.io"         = { endpoints = [var.registry_mirror_endpoint] }
+          "public.ecr.aws"  = { endpoints = [var.registry_mirror_endpoint] }
         }
       }
     }
@@ -84,6 +93,7 @@ data "talos_machine_configuration" "controlplane" {
 
   config_patches = compact([
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
+    yamlencode(local.time_patch),
     local.use_vip ? yamlencode(local.vip_patch) : "",
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
   ])
@@ -99,6 +109,7 @@ data "talos_machine_configuration" "worker" {
 
   config_patches = compact([
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
+    yamlencode(local.time_patch),
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
     length(var.worker_data_disks) > 0 ? yamlencode(local.worker_disks_patch) : "",
     length(var.worker_data_disks) > 0 ? yamlencode(local.kubelet_mounts_patch) : "",

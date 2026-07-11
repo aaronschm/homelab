@@ -1,0 +1,111 @@
+---
+- name: Configure Traefik Reverse Proxy in DMZ LXC
+  hosts: traefik
+  become: yes
+  vars:
+    traefik_version: "3.0.4"
+  tasks:
+    - name: Ensure required directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /etc/traefik
+        - /etc/traefik/dynamic
+        - /opt/traefik
+
+    - name: Download Traefik binary
+      unarchive:
+        src: "https://github.com/traefik/traefik/releases/download/v{{ traefik_version }}/traefik_v{{ traefik_version }}_linux_amd64.tar.gz"
+        dest: /opt/traefik
+        remote_src: yes
+        creates: /opt/traefik/traefik
+
+    - name: Create symlink
+      file:
+        src: /opt/traefik/traefik
+        dest: /usr/local/bin/traefik
+        state: link
+
+    - name: Create static configuration
+      copy:
+        dest: /etc/traefik/traefik.yml
+        content: |
+          entryPoints:
+            web:
+              address: ":80"
+              http:
+                redirections:
+                  entryPoint:
+                    to: websecure
+                    scheme: https
+            websecure:
+              address: ":443"
+          
+          providers:
+            file:
+              directory: "/etc/traefik/dynamic"
+              watch: true
+          
+          api:
+            dashboard: true
+            insecure: true
+          
+          log:
+            level: INFO
+            
+          certificatesResolvers:
+            letsencrypt:
+              acme:
+                email: "admin@yourdomain.com" # TODO: Change this to your email!
+                storage: "/etc/traefik/acme.json"
+                httpChallenge:
+                  entryPoint: web
+
+    - name: Ensure acme.json exists with correct permissions
+      file:
+        path: /etc/traefik/acme.json
+        state: touch
+        mode: '0600'
+
+    - name: Create systemd service for Traefik
+      copy:
+        dest: /etc/systemd/system/traefik.service
+        content: |
+          [Unit]
+          Description=Traefik Reverse Proxy
+          After=network-online.target
+          Wants=network-online.target systemd-networkd-wait-online.service
+
+          [Service]
+          Restart=on-abnormal
+          ExecStart=/usr/local/bin/traefik --configfile=/etc/traefik/traefik.yml
+          LimitNOFILE=1048576
+          PrivateTmp=true
+          PrivateDevices=false
+          ProtectHome=true
+          ProtectSystem=full
+          ReadWritePaths=/etc/traefik
+          CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+          AmbientCapabilities=CAP_NET_BIND_SERVICE
+          NoNewPrivileges=true
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start Traefik service
+      systemd:
+        name: traefik
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    - name: "Sync local dynamic config folder to Traefik LXC"
+      copy:
+        src: traefik-dynamic/
+        dest: /etc/traefik/dynamic/
+        owner: root
+        group: root
+        mode: '0644'
+        directory_mode: '0755'

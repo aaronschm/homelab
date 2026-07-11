@@ -42,6 +42,14 @@ firewall_rules:
     ports: [50000]
     proto: tcp
 
+  - name: "Server to Talos API"
+    src_zone: server
+    dst_zone: cluster
+    src_ips: ["10.10.20.0/24"]
+    dst_ips: ["10.10.25.0/24"]
+    ports: [50000]
+    proto: tcp
+
   - name: "PC to Kubernetes API"
     src_zone: trusted
     dst_zone: cluster
@@ -50,11 +58,35 @@ firewall_rules:
     ports: [6443]
     proto: tcp
 
+  - name: "Server to Kubernetes API"
+    src_zone: server
+    dst_zone: cluster
+    src_ips: ["10.10.20.0/24"]
+    dst_ips: ["10.10.25.11"]
+    ports: [6443]
+    proto: tcp
+
+  - name: "Server to Cluster ICMP"
+    src_zone: server
+    dst_zone: cluster
+    src_ips: ["10.10.20.0/24"]
+    dst_ips: ["10.10.25.0/24"]
+    ports: []
+    proto: icmp
+
+  - name: "Cluster to Proxmox NTP"
+    src_zone: cluster
+    dst_zone: server
+    src_ips: ["10.10.25.0/24"]
+    dst_ips: ["10.10.20.2"]
+    ports: [123]
+    proto: udp
+
   - name: "Cluster to Registry mirror"
     src_zone: cluster
     dst_zone: server
     src_ips: ["10.10.25.0/24"]
-    dst_ips: ["10.10.20.101"]
+    dst_ips: ["10.10.20.2"]
     ports: [5000]
     proto: tcp
 

@@ -46,6 +46,12 @@
           "content": [{ "prefix": "**" }],
           "onDemand": true,
           "tlsVerify": true
+        },
+        {
+          "urls": ["https://public.ecr.aws"],
+          "content": [{ "prefix": "**" }],
+          "onDemand": true,
+          "tlsVerify": true
         }
       ]
     }

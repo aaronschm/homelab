@@ -1,0 +1,18 @@
+# This file tells Traefik how to route traffic to your Kubernetes cluster
+http:
+  routers:
+    # Example router for a service like nextcloud or forgejo
+    # my-service:
+    #   rule: "Host(`service.isarcloud.local`)"
+    #   service: "my-svc"
+    #   entryPoints:
+    #     - "websecure"
+    #   tls:
+    #     certResolver: letsencrypt
+  
+  services:
+    # Example service pointing to Talos worker node IP and NodePort
+    # my-svc:
+    #   loadBalancer:
+    #     servers:
+    #       - url: "http://10.10.25.101:30080"
