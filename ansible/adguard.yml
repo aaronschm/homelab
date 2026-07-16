@@ -17,6 +17,36 @@
       args:
         creates: /etc/systemd/system/AdGuardHome.service
 
+    - name: Pre-seed AdGuard Home configuration (skips setup wizard)
+      copy:
+        dest: /opt/AdGuardHome/AdGuardHome.yaml
+        force: no # Don't overwrite if it already exists
+        content: |
+          bind_host: 0.0.0.0
+          bind_port: 3000
+          users:
+            # Default user: admin / admin (change this immediately in UI!)
+            - name: admin
+              password: "$2y$05$59S2d9m4oP/a5Gq7G/4hA.q.i2iA9jI2O2W.2U.7S8xZ1U1A3/1eG"
+          dns:
+            bind_hosts:
+              - 0.0.0.0
+            port: 53
+            bootstrap_dns:
+              - 1.1.1.1
+            upstream_dns:
+              - 1.1.1.1
+              - 1.0.0.1
+          tls:
+            enabled: false
+          filters:
+            - enabled: true
+              url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+              name: AdGuard DNS filter
+              id: 1
+          user_rules:
+            - "||isarcloud.local^$dnsrewrite=10.10.24.10"
+
     - name: Ensure AdGuard is started and enabled
       systemd:
         name: AdGuardHome

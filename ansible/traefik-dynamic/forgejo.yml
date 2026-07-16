@@ -11,4 +11,4 @@ http:
       loadBalancer:
         servers:
           # Pointing directly to the new Forgejo LXC on VLAN 20
-          - url: "http://10.10.20.102:3000"
+          - url: "http://10.10.20.100:3000"

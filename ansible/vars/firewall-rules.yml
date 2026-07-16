@@ -97,3 +97,11 @@ firewall_rules:
     dst_ips: ["10.10.25.0/24"]
     ports: [80, 443]
     proto: tcp
+
+  - name: "Traefik to Forgejo LXC"
+    src_zone: dmz
+    dst_zone: server
+    src_ips: ["10.10.24.10"]
+    dst_ips: ["10.10.20.100"]
+    ports: [3000]
+    proto: tcp
