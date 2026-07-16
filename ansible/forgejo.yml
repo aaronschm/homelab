@@ -50,6 +50,7 @@
               environment:
                 - USER_UID=1000
                 - USER_GID=1000
+                - FORGEJO__actions__ENABLED=true
               restart: always
               networks:
                 - forgejo
@@ -60,10 +61,53 @@
               ports:
                 - "3000:3000"
                 - "2222:22"
+
+            runner:
+              image: code.forgejo.org/forgejo/runner:3.4.1
+              container_name: forgejo-runner
+              environment:
+                - DOCKER_HOST=unix:///var/run/docker.sock
+              networks:
+                - forgejo
+              volumes:
+                - ./runner-data:/data
+                - /var/run/docker.sock:/var/run/docker.sock
+              restart: always
+              profiles:
+                - manual_start # Don't start automatically on first boot, needs registration
         mode: "0644"
+
+    - name: Create runner registration helper script
+      ansible.builtin.copy:
+        dest: /opt/forgejo/register-runner.sh
+        content: |
+          #!/bin/bash
+          echo "Please ensure you have completed the Forgejo setup wizard in the browser!"
+          echo "Go to Site Administration -> Actions -> Runners -> Create new Runner"
+          echo "Paste the Registration Token below:"
+          read -p "Token: " TOKEN
+          
+          if [ -z "$TOKEN" ]; then
+            echo "Token cannot be empty!"
+            exit 1
+          fi
+          
+          cd /opt/forgejo
+          echo "Registering runner..."
+          docker compose run --rm runner forgejo-runner register \
+            --no-interactive \
+            --token "$TOKEN" \
+            --name "homelab-runner" \
+            --instance http://server:3000
+            
+          echo "Starting the runner daemon in the background..."
+          docker compose up -d runner
+          
+          echo "Done! Your CI/CD runner is active."
+        mode: "0755"
 
     - name: Start Forgejo via Docker Compose
       ansible.builtin.command:
-        cmd: docker compose -f /opt/forgejo/docker-compose.yml up -d
+        cmd: docker compose -f /opt/forgejo/docker-compose.yml up -d server
       register: compose_up
       changed_when: "'Started' in compose_up.stderr or 'Created' in compose_up.stderr"
