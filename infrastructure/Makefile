@@ -19,9 +19,9 @@ KUBECONFIG_OUT := $(CURDIR)/kubeconfig
 TALOSCONFIG_OUT := $(CURDIR)/talosconfig
 ARGOCD_VERSION := stable
 
-.PHONY: all firewall infra cluster gitops kubeconfig secrets destroy proxy dns git
+.PHONY: all firewall infra cluster gitops kubeconfig secrets destroy proxy dns git backup
 
-all: firewall infra cluster gitops secrets proxy dns git
+all: firewall infra cluster gitops secrets proxy dns git backup
 
 proxy:
 	ansible-playbook -i $(ANSIBLE_DIR)/inventory.ini $(ANSIBLE_DIR)/traefik.yml
@@ -31,6 +31,9 @@ dns:
 
 git:
 	ansible-playbook -i $(ANSIBLE_DIR)/inventory.ini $(ANSIBLE_DIR)/forgejo.yml
+
+backup:
+	ansible-playbook -i $(ANSIBLE_DIR)/inventory.ini $(ANSIBLE_DIR)/lxc-backup.yml
 
 firewall:
 	ansible-playbook -i $(ANSIBLE_DIR)/inventory.ini $(ANSIBLE_DIR)/udm-firewall.yml -e udm_apply=true

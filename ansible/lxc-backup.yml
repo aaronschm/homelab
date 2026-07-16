@@ -1,0 +1,65 @@
+---
+- name: Setup Direct-Access Offsite Backup for LXCs via Rclone
+  hosts: lxc
+  become: true
+  vars:
+    # Set these in group_vars/all.yml or pass via -e
+    s3_endpoint: "https://s3.your-offsite.com"
+    s3_access_key: "your-access-key"
+    s3_secret_key: "your-secret-key"
+    s3_bucket: "homelab-lxc-backups"
+    
+  tasks:
+    - name: Ensure rclone and cron are installed
+      ansible.builtin.apt:
+        name:
+          - rclone
+          - cron
+        state: present
+        update_cache: true
+
+    - name: Create rclone config directory
+      ansible.builtin.file:
+        path: /root/.config/rclone
+        state: directory
+        mode: '0700'
+
+    - name: Configure rclone S3 remote
+      ansible.builtin.copy:
+        dest: /root/.config/rclone/rclone.conf
+        mode: '0600'
+        content: |
+          [offsite]
+          type = s3
+          provider = Other
+          endpoint = {{ s3_endpoint }}
+          access_key_id = {{ s3_access_key }}
+          secret_access_key = {{ s3_secret_key }}
+          acl = private
+
+    # Traefik backup
+    - name: Setup cron job for Traefik backup
+      ansible.builtin.cron:
+        name: "Backup Traefik config to S3"
+        minute: "0"
+        hour: "3"
+        job: "rclone sync /etc/traefik offsite:{{ s3_bucket }}/traefik/ --delete-excluded"
+      when: "'traefik' in group_names"
+
+    # Forgejo/Gitea backup
+    - name: Setup cron job for Forgejo backup
+      ansible.builtin.cron:
+        name: "Backup Forgejo data to S3"
+        minute: "30"
+        hour: "3"
+        job: "rclone sync /opt/forgejo offsite:{{ s3_bucket }}/forgejo/ --delete-excluded"
+      when: "'forgejo' in group_names"
+
+    # AdGuard backup
+    - name: Setup cron job for AdGuard backup
+      ansible.builtin.cron:
+        name: "Backup AdGuard data to S3"
+        minute: "0"
+        hour: "4"
+        job: "rclone sync /opt/AdGuardHome offsite:{{ s3_bucket }}/adguard/ --delete-excluded"
+      when: "'adguard' in group_names"
