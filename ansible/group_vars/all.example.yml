@@ -12,3 +12,9 @@ udm_username: "ansible"
 udm_password: "CHANGE_ME"
 
 udm_verify_ssl: false              # UDM uses a self-signed cert by default
+
+# Offsite S3 Backup Credentials for LXCs
+s3_endpoint: "https://s3.your-offsite.com"
+s3_access_key: "your-access-key"
+s3_secret_key: "your-secret-key"
+s3_bucket: "homelab-lxc-backups"

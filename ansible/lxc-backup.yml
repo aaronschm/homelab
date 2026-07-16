@@ -3,11 +3,11 @@
   hosts: lxc
   become: true
   vars:
-    # Set these in group_vars/all.yml or pass via -e
-    s3_endpoint: "https://s3.your-offsite.com"
-    s3_access_key: "your-access-key"
-    s3_secret_key: "your-secret-key"
-    s3_bucket: "homelab-lxc-backups"
+    # These variables MUST be set in ansible/group_vars/all.yml
+    # s3_endpoint: "https://s3.your-offsite.com"
+    # s3_access_key: "your-access-key"
+    # s3_secret_key: "your-secret-key"
+    # s3_bucket: "homelab-lxc-backups"
     
   tasks:
     - name: Ensure rclone and cron are installed
