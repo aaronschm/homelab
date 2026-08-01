@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "4000:4000"
+    environment:
+      - ROUTER_IP=10.10.1.2
+      - ROUTER_USER=automation
+      - ROUTER_PASS=ChangeMe123!
+      - ROUTER_TYPE=mikrotik
+  
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:4000

@@ -1,0 +1,126 @@
+version: "3"
+
+silent: true
+
+vars:
+  PROXMOX_DIR: infrastructure/terraform/proxmox
+  TALOS_DIR: infrastructure/terraform/talos
+  ANSIBLE_DIR: ansible
+  KUBECONFIG_OUT: infrastructure/kubeconfig
+  TALOSCONFIG_OUT: infrastructure/talosconfig
+  AGE_KEY: _local/age.key
+  ARGOCD_VERSION: stable
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list
+
+  # ---------------------------------------------------------------- tooling ---
+  setup:
+    desc: Install the pinned toolchain via mise
+    cmds:
+      - mise install
+      - 'echo "Toolchain ready. Next: task secrets:init"'
+
+  # ---------------------------------------------------------------- secrets ---
+  secrets:init:
+    desc: Generate your age keypair for SOPS
+    status:
+      - test -f {{.AGE_KEY}}
+    cmds:
+      - mkdir -p _local
+      - age-keygen -o {{.AGE_KEY}}
+      - 'echo ""'
+      - 'echo "Add this PUBLIC key to .sops.yaml (age: field):"'
+      - age-keygen -y {{.AGE_KEY}}
+
+  secrets:pubkey:
+    desc: Print your age public key
+    cmds:
+      - age-keygen -y {{.AGE_KEY}}
+
+  secrets:edit:
+    desc: "Edit an encrypted secret in place, e.g. task secrets:edit -- path/to/file.sops.yaml"
+    cmds:
+      - SOPS_AGE_KEY_FILE={{.AGE_KEY}} sops {{.CLI_ARGS}}
+
+  secrets:rekey:
+    desc: Re-encrypt all *.sops.yaml files
+    cmds:
+      - 'SOPS_AGE_KEY_FILE={{.AGE_KEY}} find . -name "*.sops.yaml" -not -path "./_local/*" -exec sops updatekeys -y {} \;'
+
+  # ------------------------------------------------------ infrastructure ---
+  firewall:
+    desc: "Stage 0 - Update MikroTik firewall rules"
+    dir: "{{.ANSIBLE_DIR}}"
+    cmds:
+      - ansible-playbook -i inventory.ini mikrotik.yml
+
+  infra:
+    desc: "Stage 1 - Create LXCs + Talos VMs via Proxmox API"
+    dir: "{{.PROXMOX_DIR}}"
+    cmds:
+      - terraform init -input=false
+      - terraform apply -auto-approve
+
+  cluster:
+    desc: "Stage 2 - Apply Talos config, bootstrap etcd, write kubeconfig"
+    dir: "{{.TALOS_DIR}}"
+    cmds:
+      - terraform init -input=false
+      - terraform apply -auto-approve
+      - terraform output -raw kubeconfig > ../../{{.KUBECONFIG_OUT}}
+      - terraform output -raw talosconfig > ../../{{.TALOSCONFIG_OUT}}
+      - 'echo "Wrote kubeconfig and talosconfig"'
+
+  kubeconfig:
+    desc: "Extract kubeconfig from terraform"
+    dir: "{{.TALOS_DIR}}"
+    cmds:
+      - terraform output -raw kubeconfig > ../../{{.KUBECONFIG_OUT}}
+
+  # ------------------------------------------------------- kubernetes ---
+  gitops:
+    desc: "Stage 3 - Install Argo CD and apply root app"
+    cmds:
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace argocd --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/{{.ARGOCD_VERSION}}/manifests/install.yaml
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
+      - |
+        if [ -f kubernetes/bootstrap/repo-credentials-secret.sops.yaml ]; then
+          echo "Applying private-repo credentials"
+          SOPS_AGE_KEY_FILE={{.AGE_KEY}} sops --decrypt kubernetes/bootstrap/repo-credentials-secret.sops.yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+        fi
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f kubernetes/bootstrap/root-app.yaml
+      - 'echo "Argo CD installed and root app applied."'
+
+  secrets:apply:
+    desc: "Stage 4 - Decrypt and apply SOPS secrets to the cluster"
+    cmds:
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace minio --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace longhorn-system --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace postgresql --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace pelican --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace authentik --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - |
+        for f in $(find kubernetes -name "*-secret.sops.yaml"); do
+          echo "Applying $f"
+          SOPS_AGE_KEY_FILE={{.AGE_KEY}} sops --decrypt "$f" | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+        done
+
+  destroy:
+    desc: "Tear everything down (talos first, then proxmox)"
+    cmds:
+      - terraform -chdir={{.TALOS_DIR}} destroy -auto-approve || true
+      - terraform -chdir={{.PROXMOX_DIR}} destroy -auto-approve
+
+  all:
+    desc: "Full bring-up: firewall -> infra -> cluster -> gitops -> secrets"
+    cmds:
+      - task: firewall
+      - task: infra
+      - task: cluster
+      - task: gitops
+      - task: secrets:apply

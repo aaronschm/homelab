@@ -1,0 +1,7 @@
+[tools]
+"terraform" = "1.5"
+"talosctl" = "1.7"
+"talhelper" = "3.0"
+"sops" = "3.8"
+"age" = "1.1"
+"task" = "3"

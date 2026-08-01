@@ -210,13 +210,13 @@
       <div class="card">
         <span class="ico">🛡️</span>
         <h4>Edge</h4>
-        <p>UDM Pro firewall policies and the Zot registry mirror, via Ansible.</p>
+        <p>MikroTik firewall policies and the Zot registry mirror, via Ansible.</p>
         <span class="path">ansible/</span>
       </div>
     </div>
 
     <div class="note ok">Run everything from <b>your PC</b>:
-      <code>cd infrastructure &amp;&amp; make all</code> walks the full flow end-to-end.</div>
+      <code>cd infrastructure &amp;&amp; task all</code> walks the full flow end-to-end.</div>
   </section>
 
   <!-- ARCHITECTURE -->
@@ -266,7 +266,7 @@
   <!-- NETWORK -->
   <section id="network">
     <h2>Network &amp; VLANs</h2>
-    <p class="lead">Three VLANs on the UDM Pro, trunked to the Proxmox uplink on a VLAN-aware
+    <p class="lead">Three VLANs on the MikroTik, trunked to the Proxmox uplink on a VLAN-aware
        <code>vmbr0</code>. VLAN 25 has no internet access by design.</p>
     <table>
       <thead><tr><th>VLAN</th><th>Role</th><th>Subnet</th><th>Internet</th></tr></thead>
@@ -282,7 +282,7 @@
       SSH and no package manager, so the attack surface is smaller than the old script setup.</div>
 
     <h3>Firewall automation</h3>
-    <p class="muted"><code>ansible/udm-firewall.yml</code> logs into the UDM with a local admin
+    <p class="muted"><code>ansible/mikrotik.yml</code> logs into the MikroTik with a local admin
        account, discovers the existing firewall policies, then applies the rules the cluster
        needs. VLANs themselves are created in the UniFi UI; Ansible only manages policies.</p>
   </section>
@@ -355,19 +355,19 @@
   <!-- BOOTSTRAP -->
   <section id="bootstrap">
     <h2>Bootstrap Flow</h2>
-    <p class="lead">One command from your PC: <code>cd infrastructure &amp;&amp; make all</code>.
+    <p class="lead">One command from your PC: <code>cd infrastructure &amp;&amp; task all</code>.
        It runs these phases in order — or run any target on its own.</p>
     <div class="flow">
       <div class="step"><div class="rail"><div class="dot">1</div><div class="bar"></div></div>
-        <div class="content"><b>Firewall</b> <span class="cmd">make firewall</span><p>Ansible configures UDM Pro firewall policies so the VLANs can talk as needed.</p></div></div>
+        <div class="content"><b>Firewall</b> <span class="cmd">task firewall</span><p>Ansible configures MikroTik firewall policies so the VLANs can talk as needed.</p></div></div>
       <div class="step"><div class="rail"><div class="dot">2</div><div class="bar"></div></div>
-        <div class="content"><b>Infrastructure</b> <span class="cmd">make infra</span><p>Terraform creates the LXCs and Talos VMs and autostarts them in boot order (registry first).</p></div></div>
+        <div class="content"><b>Infrastructure</b> <span class="cmd">task infra</span><p>Terraform creates the LXCs and Talos VMs and autostarts them in boot order (registry first).</p></div></div>
       <div class="step"><div class="rail"><div class="dot">3</div><div class="bar"></div></div>
-        <div class="content"><b>Cluster</b> <span class="cmd">make cluster</span><p>Terraform applies Talos machine configs, bootstraps etcd, and writes <code>kubeconfig</code> + <code>talosconfig</code>.</p></div></div>
+        <div class="content"><b>Cluster</b> <span class="cmd">task cluster</span><p>Terraform applies Talos machine configs, bootstraps etcd, and writes <code>kubeconfig</code> + <code>talosconfig</code>.</p></div></div>
       <div class="step"><div class="rail"><div class="dot">4</div><div class="bar"></div></div>
-        <div class="content"><b>GitOps</b> <span class="cmd">make gitops</span><p>Installs Argo CD and applies the root app-of-apps. Argo then deploys Longhorn, MinIO and your pods automatically.</p></div></div>
+        <div class="content"><b>GitOps</b> <span class="cmd">task gitops</span><p>Installs Argo CD and applies the root app-of-apps. Argo then deploys Longhorn, MinIO and your pods automatically.</p></div></div>
       <div class="step"><div class="rail"><div class="dot">5</div></div>
-        <div class="content"><b>Secrets</b> <span class="cmd">make secrets</span><p>Applies the git-ignored Kubernetes secrets (MinIO root, Longhorn backup creds, PostgreSQL).</p></div></div>
+        <div class="content"><b>Secrets</b> <span class="cmd">task secrets:apply</span><p>Applies the git-ignored Kubernetes secrets (MinIO root, Longhorn backup creds, PostgreSQL).</p></div></div>
     </div>
   </section>
 
@@ -404,7 +404,7 @@
   <section id="start">
     <h2>Getting Started</h2>
     <p class="lead">Everything <b>you personally</b> must create or fill in before
-       <code>cd infrastructure &amp;&amp; make all</code> will work end-to-end. Run it all from your PC.</p>
+       <code>cd infrastructure &amp;&amp; task all</code> will work end-to-end. Run it all from your PC.</p>
 
     <h3>1 · Things you create <span class="accent">outside the repo</span></h3>
     <div class="grid cols-2">
@@ -412,16 +412,16 @@
         <p>In Proxmox: <i>Datacenter → Permissions → API Tokens</i>. Create a token (e.g.
            <code>root@pam!homelab</code>), give it privileges on <code>/</code>. Paste the
            <code>USER@REALM!ID=UUID</code> into <code>pve_api_token</code>.</p></div>
-      <div class="card"><span class="ico">🌐</span><h4>UDM Pro local admin</h4>
+      <div class="card"><span class="ico">🌐</span><h4>MikroTik local admin</h4>
         <p>UniFi → <i>Settings → Admins</i> → add a <b>local</b> admin (not the Ubiquiti cloud
            account). The firewall playbook logs in with it. Put it in <code>group_vars/all.yml</code>.</p></div>
       <div class="card"><span class="ico">🧱</span><h4>Proxmox host prep</h4>
-        <p>Make <code>vmbr0</code> VLAN-aware; trunk VLANs 20/24/25 on the UDM uplink port. Have
+        <p>Make <code>vmbr0</code> VLAN-aware; trunk VLANs 20/24/25 on the MikroTik uplink port. Have
            the LXC template and storage pools (<code>beta</code>, <code>alpha</code>) present.</p></div>
       <div class="card"><span class="ico">🔐</span><h4>SSH key</h4>
         <p>Your public key goes in <code>ssh_public_keys</code> — injected into the LXCs and the
            gameserver VM (Talos nodes have no SSH).</p></div>
-      <div class="card"><span class="ico">📡</span><h4>VLANs on the UDM</h4>
+      <div class="card"><span class="ico">📡</span><h4>VLANs on the MikroTik</h4>
         <p>Create networks for VLAN 20 / 24 / 25 in UniFi (already done in your case). Ansible only
            manages firewall <i>policies</i>, not the networks themselves.</p></div>
       <div class="card"><span class="ico">🧰</span><h4>Tools on your PC</h4>
@@ -435,11 +435,11 @@
       <tbody>
         <tr><td class="mono">terraform/proxmox/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>PVE endpoint, API token, node, storage, image URLs, guest maps</td></tr>
         <tr><td class="mono">terraform/talos/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>Talos schematic image URL, node maps, data disks</td></tr>
-        <tr><td class="mono">ansible/group_vars/all.example.yml</td><td class="mono">…/all.yml</td><td>UDM host, local admin username + password</td></tr>
+        <tr><td class="mono">ansible/group_vars/all.example.yml</td><td class="mono">…/all.yml</td><td>MikroTik host, local admin username + password</td></tr>
         <tr><td class="mono">kubernetes/**/​*-secret.example.yaml</td><td class="mono">…/*-secret.yaml</td><td>MinIO root, Longhorn backup creds, <b>longhorn-crypto + offsite-crypt passphrases</b>, off-site MinIO creds, PostgreSQL, Pelican APP_KEY</td></tr>
       </tbody>
     </table>
-    <div class="note ok">Then: <code>cd infrastructure &amp;&amp; make all</code>. The five phases
+    <div class="note ok">Then: <code>cd infrastructure &amp;&amp; task all</code>. The five phases
       (firewall → infra → cluster → gitops → secrets) run in order and hand the cluster to Argo CD.</div>
 
     <h3>3 · Tuning <span class="accent">without rewriting the repo</span></h3>
@@ -487,7 +487,7 @@
         Longhorn for volumes and the in-cluster PostgreSQL / MinIO for data. See <code>docs/roadmap.md</code>.</p></div></details>
     <details><summary>Where do secrets live?</summary>
       <div class="body"><p>No real secrets in Git — only <code>*.example.yaml</code> templates, applied via
-        <code>make secrets</code> or sealed with kubeseal. Talos PKI lives in the talos Terraform state;
+        <code>task secrets:apply</code> or sealed with kubeseal. Talos PKI lives in the talos Terraform state;
         keep that out of Git and treat it as sensitive.</p></div></details>
   </section>
 
@@ -527,7 +527,7 @@
     <ol class="steps">
       <li>Install Proxmox VE; node <code>pve</code>; recreate pools (<code>beta</code>, ISO/template dir on <code>local</code>/rpool); make <code>vmbr0</code> VLAN-aware.</li>
       <li>Clone this repo; restore the escrowed <code>terraform.tfvars</code> and every <code>*-secret.yaml</code> — above all <code>longhorn-crypto-secret.yaml</code> with the <b>original</b> passphrase.</li>
-      <li><code>cd infrastructure &amp;&amp; make all</code> — Talos brings the cluster up; Argo CD redeploys everything.</li>
+      <li><code>cd infrastructure &amp;&amp; task all</code> — Talos brings the cluster up; Argo CD redeploys everything.</li>
       <li>Point Longhorn's backup target at the friend's MinIO (or <code>mc mirror</code> his bucket back into the fresh local MinIO).</li>
       <li>Longhorn UI → <b>Backup</b> → restore each volume into its original PVC name. Argo reconciles the apps onto the restored data.</li>
     </ol>
@@ -570,7 +570,7 @@
            a shorthand list of what changed. Tick a box to approve.</p></div>
       <div class="card"><span class="ico">☸️</span><h4>Cluster upgrades</h4>
         <p>Talos/k8s version PRs are labelled <code>manual-apply</code>: after merging, run
-           <code>make cluster</code> / <code>talosctl upgrade</code> — they don't apply by a git merge alone.</p></div>
+           <code>task cluster</code> / <code>talosctl upgrade</code> — they don't apply by a git merge alone.</p></div>
     </div>
 
     <h3>One-time <span class="accent">setup</span></h3>

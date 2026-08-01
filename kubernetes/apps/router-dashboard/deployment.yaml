@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router-dashboard
+  namespace: router-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: router-dashboard
+  template:
+    metadata:
+      labels:
+        app: router-dashboard
+    spec:
+      containers:
+        - name: backend
+          image: router-dashboard-backend:latest # We'll set up ghcr build later
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - secretRef:
+                name: router-credentials
+        - name: frontend
+          image: router-dashboard-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80

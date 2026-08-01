@@ -1,106 +1,67 @@
 # Inter-VLAN firewall policies for the homelab.
-#
-# zone_names maps a short alias (used in rules below) to the EXACT zone name
-# on the controller. Your UDM uses the default UniFi zones — multiple networks
-# share a zone (e.g. Trusted/Server/Cluster are all "Internal"):
-#
-#   Internal  ← Trusted (10), Server (20), Cluster (25)
-#   Dmz       ← DMZ (24)
-#   External  ← WAN
-#
-# Because multiple VLANs share the Internal zone, rules MUST include src_ips
-# and dst_ips for specificity — otherwise a zone-level ALLOW would be too broad.
-#
-# Reference of the VLAN layout (from docs/network-setup.md):
+# Updated from CRS309 export.
+
 vlans:
   trusted: { id: 10, subnet: "10.10.10.0/24" }
   server:  { id: 20, subnet: "10.10.20.0/24" }
   dmz:     { id: 24, subnet: "10.10.24.0/24" }
   cluster: { id: 25, subnet: "10.10.25.0/24" }
 
-# Map short alias → exact UniFi zone name (case-sensitive).
-zone_names:
-  trusted: "Internal"
-  server:  "Internal"
-  dmz:     "Dmz"
-  cluster: "Internal"
-
 firewall_rules:
+  - name: "FastTrack Rule"
+    proto: tcp
+    action: "fasttrack-connection"
+    # Note: Ansible mikrotik.yml needs to be updated to support fasttrack and state matching,
+    # For now, these represent the intent based on the export.
+    
   - name: "PC to Proxmox API"
-    src_zone: trusted
-    dst_zone: server
     src_ips: ["10.10.10.0/24"]
     dst_ips: ["10.10.20.0/24"]
     ports: [8006]
     proto: tcp
 
   - name: "PC to Talos API"
-    src_zone: trusted
-    dst_zone: cluster
     src_ips: ["10.10.10.0/24"]
     dst_ips: ["10.10.25.0/24"]
     ports: [50000]
     proto: tcp
 
   - name: "Server to Talos API"
-    src_zone: server
-    dst_zone: cluster
     src_ips: ["10.10.20.0/24"]
     dst_ips: ["10.10.25.0/24"]
     ports: [50000]
     proto: tcp
 
   - name: "PC to Kubernetes API"
-    src_zone: trusted
-    dst_zone: cluster
     src_ips: ["10.10.10.0/24"]
     dst_ips: ["10.10.25.11"]
     ports: [6443]
     proto: tcp
 
   - name: "Server to Kubernetes API"
-    src_zone: server
-    dst_zone: cluster
     src_ips: ["10.10.20.0/24"]
     dst_ips: ["10.10.25.11"]
     ports: [6443]
     proto: tcp
 
   - name: "Server to Cluster ICMP"
-    src_zone: server
-    dst_zone: cluster
     src_ips: ["10.10.20.0/24"]
     dst_ips: ["10.10.25.0/24"]
-    ports: []
     proto: icmp
 
   - name: "Cluster to Proxmox NTP"
-    src_zone: cluster
-    dst_zone: server
     src_ips: ["10.10.25.0/24"]
     dst_ips: ["10.10.20.2"]
     ports: [123]
     proto: udp
 
-  - name: "Cluster to Registry mirror"
-    src_zone: cluster
-    dst_zone: server
-    src_ips: ["10.10.25.0/24"]
-    dst_ips: ["10.10.20.2"]
-    ports: [5000]
-    proto: tcp
-
   - name: "Traefik to Cluster ingress"
-    src_zone: dmz
-    dst_zone: cluster
     src_ips: ["10.10.24.10"]
     dst_ips: ["10.10.25.0/24"]
     ports: [80, 443]
     proto: tcp
 
   - name: "Traefik to Forgejo LXC"
-    src_zone: dmz
-    dst_zone: server
     src_ips: ["10.10.24.10"]
     dst_ips: ["10.10.20.100"]
     ports: [3000]

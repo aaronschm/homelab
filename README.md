@@ -34,8 +34,8 @@ See [docs/network-setup.md](docs/network-setup.md) for VLANs and firewall rules.
 ## Quick start (from your workstation)
 
 ```bash
-cd infrastructure
-make all        # firewall (UDM) -> infra (Proxmox) -> cluster (Talos) -> gitops (Argo CD) -> secrets
+task setup      # installs terraform, sops, age, talosctl via mise
+task all        # firewall (MikroTik) -> infra (Proxmox) -> cluster (Talos) -> gitops (Argo CD) -> secrets
 ```
 
 Prerequisites and step-by-step are in [docs/proxmox-iac.md](docs/proxmox-iac.md).
@@ -45,19 +45,21 @@ Prerequisites and step-by-step are in [docs/proxmox-iac.md](docs/proxmox-iac.md)
 ```
 ├── infrastructure/          # API-driven IaC
 │   ├── terraform/proxmox/   # bpg/proxmox: Talos VMs, LXCs, gameserver VM
-│   ├── terraform/talos/     # siderolabs/talos: cluster bootstrap + kubeconfig
-│   └── Makefile             # one-touch bootstrap
-├── ansible/                 # UDM Pro firewall + Zot registry mirror
+│   └── terraform/talos/     # siderolabs/talos: cluster bootstrap + kubeconfig
+├── ansible/                 # MikroTik firewall + Zot registry mirror
 ├── kubernetes/
 │   ├── bootstrap/           # Argo CD app-of-apps root
 │   ├── platform/            # cluster infrastructure (Longhorn, MinIO, …)
 │   ├── common/              # shared resources (sealed secrets)
-│   └── apps/                # application manifests (PostgreSQL, Pelican, …)
-└── docs/                    # design, network reference, roadmap
+│   └── apps/                # application manifests (PostgreSQL, Router Dashboard, Pelican, …)
+├── docs/                    # design, network reference, roadmap
+└── Taskfile.yml             # one-touch bootstrap and secret management
 ```
 
 ## Configuration & secrets
 
 Per-environment config lives in `infrastructure/terraform/*/terraform.tfvars`
-(copy the `.example` files). Real tfvars, Terraform state, kubeconfig, and
-Ansible secrets are **git-ignored** — never commit secrets.
+(copy the `.example` files). 
+
+Kubernetes secrets are managed via **SOPS and age** and safely committed as `*.sops.yaml`. 
+To edit a secret, use `task secrets:edit -- path/to/secret.sops.yaml`.

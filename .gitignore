@@ -26,6 +26,10 @@ ansible/group_vars/all.yml
 
 # Real Kubernetes secrets — commit only the *.example.yaml templates.
 # (Seal real secrets with kubeseal for GitOps, or apply via `make secrets`.)
-kubernetes/**/*-secret.yaml
+kubernetes/**/!*.sops.yaml
+*.sops.yaml
+_local/
 !kubernetes/**/*-secret.example.yaml
 !kubernetes/**/sealed-*.yaml
+!*.sops.yaml
+_local/
