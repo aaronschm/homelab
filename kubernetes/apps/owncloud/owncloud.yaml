@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: owncloud
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: owncloud-redis
+  namespace: owncloud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: owncloud-redis
+  template:
+    metadata:
+      labels:
+        app: owncloud-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: owncloud-redis
+  namespace: owncloud
+spec:
+  ports:
+    - port: 6379
+  selector:
+    app: owncloud-redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: owncloud
+  namespace: owncloud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: owncloud
+  template:
+    metadata:
+      labels:
+        app: owncloud
+    spec:
+      containers:
+        - name: owncloud
+          image: owncloud/server:latest
+          envFrom:
+            - secretRef:
+                name: owncloud-secret
+          env:
+            - name: OWNCLOUD_DOMAIN
+              value: "files.isarcloud.eu"
+            - name: OWNCLOUD_DB_TYPE
+              value: "pgsql"
+            - name: OWNCLOUD_DB_NAME
+              value: "owncloud"
+            - name: OWNCLOUD_DB_USERNAME
+              value: "owncloud"
+            - name: OWNCLOUD_DB_HOST
+              value: "postgresql.postgresql.svc.cluster.local"
+            - name: OWNCLOUD_REDIS_ENABLED
+              value: "true"
+            - name: OWNCLOUD_REDIS_HOST
+              value: "owncloud-redis"
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: data
+              mountPath: /mnt/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: owncloud-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: owncloud-data
+  namespace: owncloud
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-encrypted # For SSD caching/metadata, user files go to S3
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: owncloud
+  namespace: owncloud
+spec:
+  ports:
+    - port: 8080
+      targetPort: http
+  selector:
+    app: owncloud
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: owncloud
+  namespace: owncloud
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: authentik-forward-auth@kubernetescrd
+spec:
+  rules:
+    - host: files.isarcloud.eu
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: owncloud
+                port:
+                  number: 8080
