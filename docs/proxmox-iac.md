@@ -52,9 +52,9 @@ The repo's DMZ (24) and Cluster (25) VLANs won't work until both sides are set:
    → tick **VLAN aware** → **Apply Configuration**. This is non-disruptive to
    existing untagged guests (they stay on the native VLAN), but do it during a
    maintenance window since it reloads networking on the only uplink.
-2. **UDM Pro:** make the switch port feeding `nic2` a **trunk** carrying VLANs
-   20/24/25 (tagged), and create the VLAN networks with gateways `10.10.24.1` /
-   `10.10.25.1` (VLAN 25 with no internet — the dark VLAN).
+2. **MikroTik CRS309:** make the trunk port feeding `nic2` carry VLANs 20/24/25
+   (tagged), and configure gateways `10.10.24.1` / `10.10.25.1` (VLAN 25 dark —
+   no internet). Run `task firewall` to apply the declarative rule set.
 
 Then keep `enable_vlan_tagging = true` (default) in `terraform.tfvars`.
 
@@ -70,11 +70,10 @@ Then keep `enable_vlan_tagging = true` (default) in `terraform.tfvars`.
 | `ct_storage` | **beta** | LXC rootfs. |
 | `image_storage` | **local** | Directory storage — holds ISOs + cloud-init **snippets**. ZFS pools (alpha/beta) can't store those content types. |
 | `worker_data_disks[0]` | **beta** | 200 GB — Longhorn volumes (`/var/mnt/longhorn`). |
-| `worker_data_disks[1]` | **alpha** | 1000 GB — interim MinIO (`/var/mnt/alpha`) until gamma. |
-| MinIO drives | **gamma (future)** | See storage section — prefer raw passthrough over a Proxmox pool. |
+| `minio_extra_disks` | **raw passthrough** | 6×18 TB drives passed as `/dev/disk/by-id/…` → `/var/mnt/minio1..6` inside the worker VM. |
 
-`alpha` (4 TB raidz1) is being repurposed as the **interim MinIO disk** (~1 TB
-carved off) until the gamma drives are installed; the rest is winding down.
+MinIO runs in distributed mode across all 6 drives with EC:2 (4 data + 2 parity
+≈ 72 TB usable). The old `alpha` interim disk is decommissioned.
 
 ### Debian 13 (trixie) LXC template — the "volume id"
 
@@ -328,38 +327,33 @@ Your PC needs: `terraform`, `talosctl`, `kubectl`, and routing to:
 the **Proxmox API** (`:8006`), the **Talos API** on VLAN 25 (`:50000`), and the
 **Kubernetes API** on VLAN 25 (`:6443`).
 
-Your PC is on **VLAN 10 and VLAN 20**. Both work: Proxmox lives on VLAN 20 (direct
-L2), and the Talos/Kubernetes APIs on VLAN 25 are reached via the UDM Pro's
-inter-VLAN routing once the firewall rules below exist. You don't need to be on
-VLAN 20 specifically — the `ansible/udm-firewall.yml` playbook opens VLAN 10 → the
-required ports too.
+Your PC is on **VLAN 10** (Trusted). Proxmox lives on VLAN 20, and the
+Talos/Kubernetes APIs on VLAN 25 are reached via the MikroTik CRS309's
+inter-VLAN routing once the firewall rules exist. Run `task firewall` before
+`task all` to apply the rules.
 
-### One-touch flow (`infrastructure/Makefile`)
+### One-touch flow
 
 ```bash
-cd infrastructure
-make all      # = infra -> cluster -> gitops
+task setup          # install toolchain (mise)
+task secrets:init   # generate age key
+task all            # firewall → infra → cluster → gitops → secrets
 ```
 
-1. **`make infra`** — Terraform calls the **Proxmox API** to create the Registry
-   + Traefik LXCs and the Talos CP + worker VMs. Every guest is created with
-   `started = true` and `on_boot = true`, with a boot **startup order**
-   (Registry → CP → worker → Traefik), so they auto-start now and on every host
-   reboot.
-2. **`make cluster`** — Terraform applies Talos machine config, bootstraps etcd,
-   and writes `kubeconfig` + `talosconfig` to `infrastructure/` (git-ignored).
-3. **`make gitops`** — installs Argo CD and applies
-   `kubernetes/bootstrap/root-app.yaml`. From there **Argo CD owns the cluster**:
-   the app-of-apps syncs `kubernetes/platform` (Longhorn, local-path, MinIO,
-   ingress…) and `kubernetes/apps` automatically. Your in-repo pods come up on
-   their own.
-4. **`make secrets`** — applies the git-ignored Kubernetes secrets Argo can't
-   pull from Git (MinIO root + Longhorn backup creds). Copy each
-   `*-secret.example.yaml` to `*-secret.yaml`, edit, then run this (or seal them
-   with `kubeseal` and commit the sealed copy for a fully GitOps flow).
+1. **`task firewall`** — Ansible (`ansible/mikrotik.yml`) applies firewall rules
+   to the MikroTik CRS309/CRS310 and creates `network-dashboard` + `automation`
+   managed users. Requires `MIKROTIK_AUTOMATION_PASSWORD` and
+   `MIKROTIK_DASHBOARD_PASSWORD` environment variables.
+2. **`task infra`** — Terraform creates LXCs + Talos VMs via the Proxmox API.
+3. **`task cluster`** — Terraform applies Talos machine config, bootstraps etcd,
+   writes `kubeconfig` + `talosconfig`.
+4. **`task gitops`** — installs Argo CD and applies the root app-of-apps.
+   Argo CD then owns the cluster; platform and app charts sync automatically.
+5. **`task secrets:apply`** — decrypts all `*.sops.yaml` and applies them to the
+   cluster. Argo CD does **not** apply these; secrets flow only through this task.
 
-After `make all`, a host power-cycle brings everything back automatically: PVE
-boots the LXCs/VMs in order → Talos rejoins → Argo CD reconciles to the repo.
+After `task all`, a host power-cycle brings everything back automatically: PVE
+boots LXCs/VMs in order → Talos rejoins → Argo CD reconciles to the repo.
 
 ## Dark Cluster VLAN: image mirror is mandatory
 
@@ -374,12 +368,9 @@ Zot is installed at `/usr/local/bin/zot` with config at `/etc/zot/config.json`
 and storage at `/var/lib/zot-host`. The systemd unit (`zot.service`) is enabled,
 so it starts automatically on Proxmox boot.
 
-> **Why on the Proxmox host, not the Registry LXC:** VLAN 25 and VLAN 20 are in
-> the same UniFi "Internal" zone. The zone-based firewall's "Isolated Networks"
-> rule blocks same-zone inter-VLAN traffic before specific allow rules are
-> evaluated, making the LXC at 10.10.20.101 unreachable from cluster nodes.
-> The Proxmox host (10.10.20.2) is reachable because a specific "Cluster to
-> Proxmox NTP" rule exists, and the same path is used for the registry.
+> **Why on the Proxmox host, not the Registry LXC:** VLAN 25 can reach
+> `10.10.20.2` (Proxmox host) because an explicit firewall allow rule exists.
+> Using the Proxmox host also means Zot starts before any cluster node does.
 
 > **Why Zot, not `registry:2`:** a plain `registry:2` can pull-through
 > **only one** upstream. Zot's `sync` extension proxies **all six** upstreams
@@ -389,36 +380,29 @@ so it starts automatically on Proxmox boot.
 > `/etc/zot/config.json` (see `ansible/files/zot-config.json` for the content),
 > create `/etc/systemd/system/zot.service` and run `systemctl enable --now zot`.
 
-Required firewall additions — **automated via Ansible against the UDM Pro**
-(`ansible/udm-firewall.yml`, rules in `ansible/vars/firewall-rules.yml`). Run it
-once before `make all`:
+Required firewall rules — **automated via `task firewall`** (MikroTik Ansible):
 
 | Source | Destination | Port | Purpose |
 |---|---|---|---|
 | PC (VLAN 10) | VLAN 20 (Proxmox) | TCP 8006 | Proxmox API |
 | PC (VLAN 10) | VLAN 25 nodes | TCP 50000 | Talos API (config/bootstrap) |
 | PC (VLAN 10) | VLAN 25 control plane | TCP 6443 | Kubernetes API |
-| VLAN 25 nodes | `10.10.20.2` | TCP 5000 | Registry pull-through mirror (Proxmox host) |
+| VLAN 25 nodes | `10.10.20.2` | TCP 5000 | Registry pull-through mirror |
 | `10.10.24.10` (Traefik) | VLAN 25 | TCP 80/443 | Ingress |
-
-> Your UDM runs **UniFi Network 10.4.57 → Zone-Based Firewall**. The playbook
-> logs in with a **local UniFi admin account** (the Integration API key cannot
-> manage firewall policies) and **discovers your zones first** (run it read-only,
-> then fill `zone_ids` and re-run with `-e udm_apply=true`). It manages firewall
-> *policies* only — create the VLAN networks in the UI. See `ansible/README.md`.
 
 ## Phased migration
 
 - **Phase 0 — Safety:** cluster token removed; `.gitignore` covers
-  tfvars/state/kubeconfig/ansible secrets. Record current VM specs into `terraform.tfvars`.
-- **Phase 1 — Network + provider scaffolding:** run `ansible/udm-firewall.yml` to
-  open the inter-VLAN ports on the UDM Pro; create a least-privilege Proxmox API
-  token; `terraform -chdir=infrastructure/terraform/proxmox init && plan`.
+  tfvars/state/kubeconfig/ansible secrets. Record current VM specs into `terraform.tfvars`. ✅
+- **Phase 1 — Network:** run `task firewall` to open inter-VLAN ports on
+  MikroTik; create a least-privilege Proxmox API token. ✅
 - **Phase 2 — LXCs declarative:** apply `lxc.tf` for Registry + DMZ Traefik;
-  make the Registry a pull-through mirror.
-- **Phase 3 — Talos cluster:** build a factory schematic (with
-  `qemu-guest-agent`), set `talos_image_url`, pass through the 6 MinIO disks,
-  apply `proxmox` then `talos`.
+  make the Registry a pull-through mirror. ✅
+- **Phase 3 — Talos cluster:** build factory schematic (qemu-guest-agent +
+  iscsi-tools + util-linux-tools), set `talos_image_url`, configure
+  `minio_extra_disks` for 6×18 TB drives, apply `proxmox` then `talos`. ✅
+  Note: `cilium_patch` (CNI=none, kube-proxy disabled) must be in the machine
+  config **before** bootstrapping etcd.
 - **Phase 4 — GitOps:** `make gitops` (Argo CD + app-of-apps). Add MinIO to
   `kubernetes/platform`.
 - **Phase 5 — Cleanup:** legacy scripts/docs and `cluster.conf` deleted; README
@@ -498,33 +482,25 @@ To deploy the real secret, pick one:
 
 ## Decisions still open (flagged)
 
-- **VLAN-aware bridge + UDM trunk** — `vmbr0` is VLAN-aware ✓ and VLANs 20/24/25
-  exist ✓. Remaining: confirm the UDM **switch port to the Proxmox host is a
-  trunk** carrying VLANs 20/24/25 (tagged). Otherwise tagged guest traffic won't
-  pass and the nodes won't get their VLAN IPs.
 - **Worker RAM vs host capacity** — confirm the host can give the worker 32 GB
-  alongside the CP + LXCs (see MinIO section). Fallback 16–24 GB.
-- **UDM auth — local admin login.** Firewall policy CRUD uses the internal v2
-  API, authenticated with a local UniFi admin account (not the Integration API
-  key). Validate the schema via discovery mode (`ansible/README.md`).
-- **Secrets manager:** for Terraform — SOPS+age (encrypt tfvars in git) vs
-  ignored local tfvars (current default). For Kubernetes — `make secrets` (manual
-  apply) vs Sealed Secrets (commit encrypted). Pick before onboarding collaborators.
+  alongside the CP + LXCs. Fallback 16–24 GB.
 - **MinIO off-site replication:** configure bucket replication / `mc mirror` from
-  your MinIO to your friend's MinIO once it exists (Longhorn backups land in
-  `longhorn-backups`).
-- **Ingress:** keep DMZ Traefik LXC vs move ingress fully in-cluster.
-- **MinIO disk management:** DirectPV vs static Talos mounts + hostPath (drives
-  not installed yet — deferred).
+  your MinIO to your friend's MinIO once it exists. Requires an AVV (DSGVO) with
+  the storage friend before enabling.
+- **Sealed Secrets** — SOPS+age is current choice; Sealed Secrets would allow
+  committing all encrypted secrets to Git for a fully GitOps flow (no manual
+  `task secrets:apply` step). Consider for the future.
 
 ## Resolved inputs (node `pve`)
 
-- **Node:** `pve`. **Bridge:** `vmbr0` (VLAN-aware ✓; VLANs 20/24/25 created).
+- **Network:** MikroTik CRS309 (gateway) + CRS310 (switch); `vmbr0` VLAN-aware ✓;
+  VLANs 10/20/24/25 configured ✓; firewall managed by `task firewall`.
 - **Storage:** `vm_storage`/`ct_storage` = `beta` (1 TB SSD); `image_storage` =
-  `local` (ISOs + snippets); worker data disks = `beta` 200 GB (Longhorn) +
-  `alpha` 1000 GB (interim MinIO) until `gamma` (future 6×18 TB) is built.
+  `local`; worker data disks = `beta` 200 GB (Longhorn) + 6×18 TB raw passthrough
+  (MinIO distributed, EC:2). The old `alpha` interim disk is decommissioned.
 - **LXC template:** Debian 13 (trixie) — `pveam download local debian-13-standard…`.
 - **Talos schematic:** `53513e54…` — nocloud image with qemu-guest-agent +
-  iscsi-tools + util-linux-tools (Longhorn).
-- **MinIO drives:** gamma not installed yet; MinIO runs on the interim `alpha`
-  data disk now, raw passthrough planned for gamma (`minio_disks_by_id = []`).
+  iscsi-tools + util-linux-tools (Longhorn). Cilium is deployed via Argo CD
+  (not a Talos extension); CNI=none and kube-proxy are disabled in the machine config.
+- **MinIO drives:** 6×18 TB installed; `minio_extra_disks` in `terraform.tfvars`
+  must be set to the actual `/dev/disk/by-id/` paths.

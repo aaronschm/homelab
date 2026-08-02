@@ -28,7 +28,7 @@ spec:
             - name: DOMAIN
               value: "https://vault.isarcloud.eu"
             - name: SIGNUPS_ALLOWED
-              value: "true" # Change to false after you create your account
+              value: "false"
           ports:
             - containerPort: 80
               name: http

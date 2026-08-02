@@ -83,8 +83,12 @@ tasks:
         msg: "Missing ansible-playbook in PATH."
       - sh: test -f ../{{.AGE_KEY}}
         msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
+      - sh: test -n "$MIKROTIK_AUTOMATION_PASSWORD"
+        msg: "Set MIKROTIK_AUTOMATION_PASSWORD env var before running (min 16 chars)"
+      - sh: test -n "$MIKROTIK_DASHBOARD_PASSWORD"
+        msg: "Set MIKROTIK_DASHBOARD_PASSWORD env var before running (min 16 chars)"
     cmds:
-      - SOPS_AGE_KEY_FILE=../{{.AGE_KEY}} MIKROTIK_DASHBOARD_PASSWORD="$MIKROTIK_DASHBOARD_PASSWORD" ansible-playbook -i inventory.ini mikrotik.yml
+      - SOPS_AGE_KEY_FILE=../{{.AGE_KEY}} MIKROTIK_AUTOMATION_PASSWORD="$MIKROTIK_AUTOMATION_PASSWORD" MIKROTIK_DASHBOARD_PASSWORD="$MIKROTIK_DASHBOARD_PASSWORD" ansible-playbook -i inventory.ini mikrotik.yml
 
   infra:
     desc: "Stage 1 - Create LXCs + Talos VMs via Proxmox API"
@@ -156,6 +160,15 @@ tasks:
       - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace postgresql --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
       - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace pelican --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
       - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace authentik --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace owncloud --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace immich --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace jellyfin --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace synapse --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace vaultwarden --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace paperless --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace grafana --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace router-dashboard --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
+      - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace kube-system --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
       - |
         find kubernetes -name "*-secret.sops.yaml" -print0 | while IFS= read -r -d '' f; do
           echo "Applying $f"

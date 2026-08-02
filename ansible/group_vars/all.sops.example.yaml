@@ -4,6 +4,13 @@
 # The community.sops vars plugin (enabled in ansible.cfg) will decrypt this
 # automatically at playbook runtime when SOPS_AGE_KEY_FILE is set.
 
+# --- MikroTik management credentials ---
+# Password for the admin user Ansible uses to connect to MikroTik devices.
+# This is the account you log in with normally (not the network-dashboard user).
+# Keep separate from MIKROTIK_AUTOMATION_PASSWORD and MIKROTIK_DASHBOARD_PASSWORD
+# which are managed user accounts created by the playbook.
+mikrotik_password: "CHANGE_ME"
+
 # --- Offsite S3 Backup (friend's MinIO server) ---
 # Used by ansible/lxc-backup.yml for LXC snapshots.
 # Create an AVV (Auftragsverarbeitungsvertrag) with the server owner!
