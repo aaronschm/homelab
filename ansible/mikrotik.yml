@@ -57,7 +57,8 @@
       community.routeros.command:
         commands:
           - /user add name=automation group=full comment="Managed by Ansible"
-      ignore_errors: true   # fails silently if user already exists
+        timeout: 5
+      ignore_errors: true   # fails fast if user already exists
       tags: users
 
     - name: Set automation user password
@@ -70,7 +71,8 @@
       community.routeros.command:
         commands:
           - /user add name=network-dashboard group=full comment="Router Dashboard API access" address=10.10.25.0/24
-      ignore_errors: true   # fails silently if user already exists
+        timeout: 5
+      ignore_errors: true   # fails fast if user already exists
       tags: users
 
     - name: Set network-dashboard user password and allowed address
@@ -99,9 +101,9 @@
         commands: >-
           {% set cmds = [] %}
           {% for rule in firewall_rules %}
-            {% set src = rule.src_ips | join(',') if rule.src_ips else '' %}
-            {% set dst = rule.dst_ips | join(',') if rule.dst_ips else '' %}
-            {% set ports = rule.ports | join(',') if rule.ports else '' %}
+            {% set src = rule.src_ips | default([]) | join(',') %}
+            {% set dst = rule.dst_ips | default([]) | join(',') %}
+            {% set ports = rule.ports | default([]) | join(',') %}
             {% set _ = cmds.append(
                "/ip firewall filter add chain=forward action=accept " ~
                "protocol=" ~ rule.proto | lower ~ " " ~
@@ -125,7 +127,7 @@
         commands: >-
           {% set cmds = [] %}
           {% for rule in nat_rules | default([]) %}
-            {% set ports = rule.ports | join(',') %}
+            {% set ports = rule.ports | default([]) | join(',') %}
             {% set _ = cmds.append(
                "/ip firewall nat add chain=dstnat action=dst-nat " ~
                "protocol=" ~ rule.proto | lower ~ " " ~
