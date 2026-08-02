@@ -90,6 +90,34 @@
           - /ip service set api address=10.10.10.0/24,10.10.20.0/24
       tags: services
 
+    # ── Bridge VLAN trunk fix ─────────────────────────────────────────────────
+    # Proxmox (Ceres) connects to CRS310 ether3 (pvid=20), NOT directly to
+    # CRS309. The CRS309 SFP+ module (sfp-sfpplus2) is incompatible with the
+    # server's Intel X710 NIC, so that port has no link.
+    #
+    # VLAN 24 (DMZ) and VLAN 25 (Cluster) must be trunked over the
+    # CRS310↔CRS309 inter-switch link (CRS310:sfp-sfpplus1 ↔ CRS309:sfp-sfpplus8).
+    # bridge1 (CPU port) must also be a tagged member of VLANs 24/25 on CRS309
+    # so the router's vlan-cluster and vlan-dmz interfaces can respond to ARP.
+    #
+    # On CRS310: add sfp-sfpplus1 to VLAN 24 and 25 tagged lists.
+    # On CRS309: add sfp-sfpplus8 (trunk from CRS310) and bridge1 (CPU) to VLAN 24 and 25.
+    - name: Ensure VLAN 24/25 are trunked through CRS310↔CRS309 link (CRS309 side)
+      community.routeros.command:
+        commands:
+          - /interface bridge vlan set [find vlan-ids=24] tagged=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus8,ether1,bridge1
+          - /interface bridge vlan set [find vlan-ids=25] tagged=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus8,ether1,bridge1
+      when: inventory_hostname == 'crs309'
+      tags: vlan
+
+    - name: Ensure VLAN 24/25 are trunked through CRS310↔CRS309 link (CRS310 side)
+      community.routeros.command:
+        commands:
+          - /interface bridge vlan set [find vlan-ids=24] tagged=ether3,sfp-sfpplus1
+          - /interface bridge vlan set [find vlan-ids=25] tagged=ether3,sfp-sfpplus1
+      when: inventory_hostname == 'crs310'
+      tags: vlan
+
     - name: Clean up old Ansible firewall rules
       community.routeros.command:
         commands:
