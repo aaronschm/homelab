@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: router-dashboard-backend:latest
+          image: ghcr.io/aaronschm/router-dashboard-backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4000
@@ -29,7 +29,7 @@ spec:
             - name: data
               mountPath: /app/data
         - name: frontend
-          image: router-dashboard-frontend:latest
+          image: ghcr.io/aaronschm/router-dashboard-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

@@ -1,0 +1,43 @@
+name: Build and Publish Router Dashboard
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'kubernetes/apps/router-dashboard/**'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: kubernetes/apps/router-dashboard/backend
+          push: true
+          tags: ${{ env.REGISTRY }}/aaronschm/router-dashboard-backend:latest
+
+      - name: Build and push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: kubernetes/apps/router-dashboard/frontend
+          push: true
+          tags: ${{ env.REGISTRY }}/aaronschm/router-dashboard-frontend:latest

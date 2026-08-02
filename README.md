@@ -16,7 +16,8 @@ prerequisites, and migration notes. For an interactive overview, open
 |------|------|--------|------|----------|
 | 10 | Trusted | `10.10.10.0/24` | Workstations, IaC client | Yes |
 | 20 | Server | `10.10.20.0/24` | Registry LXC, Proxmox API | Yes |
-| 24 | DMZ | `10.10.24.0/24` | Traefik reverse proxy | Yes |
+| 24 | DMZ | `10.10.24.0/24` | Traefik reverse proxy
+| * | IsarCloud UI | `router.homelab.local` | Custom UI for RouterOS (WG, NAT, VLANs) | | Yes |
 | 25 | Cluster | `10.10.25.0/24` | Talos control plane + worker | No (dark) |
 
 | Host | Name | Type | VLAN | IP |
@@ -35,6 +36,8 @@ See [docs/network-setup.md](docs/network-setup.md) for VLANs and firewall rules.
 
 ```bash
 task setup      # installs terraform, sops, age, talosctl via mise
+
+# The custom Router Dashboard UI provides WireGuard peer management, Port Forwarding (NAT), and VLAN configuration via your browser.      # installs terraform, sops, age, talosctl via mise
 task all        # firewall (MikroTik) -> infra (Proxmox) -> cluster (Talos) -> gitops (Argo CD) -> secrets
 ```
 
