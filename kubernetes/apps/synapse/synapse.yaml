@@ -1,0 +1,149 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: synapse
+---
+# Element Web UI
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: element
+  namespace: synapse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: element
+  template:
+    metadata:
+      labels:
+        app: element
+    spec:
+      containers:
+        - name: element
+          image: vectorim/element-web:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: element
+  namespace: synapse
+spec:
+  ports:
+    - port: 80
+  selector:
+    app: element
+---
+# Synapse Backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synapse
+  namespace: synapse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: synapse
+  template:
+    metadata:
+      labels:
+        app: synapse
+    spec:
+      initContainers:
+        - name: generate-config
+          image: matrixdotorg/synapse:latest
+          command: ["/start.py", "generate"]
+          env:
+            - name: SYNAPSE_SERVER_NAME
+              value: "matrix.isarcloud.eu"
+            - name: SYNAPSE_REPORT_STATS
+              value: "yes"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      containers:
+        - name: synapse
+          image: matrixdotorg/synapse:latest
+          envFrom:
+            - secretRef:
+                name: synapse-secret
+          env:
+            - name: SYNAPSE_SERVER_NAME
+              value: "matrix.isarcloud.eu"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: synapse-secret
+                  key: SYNAPSE_POSTGRES_PASSWORD
+            - name: POSTGRES_USER
+              value: "synapse"
+            - name: POSTGRES_HOST
+              value: "postgresql.postgresql.svc.cluster.local"
+            - name: POSTGRES_DB
+              value: "synapse"
+          ports:
+            - containerPort: 8008
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: synapse-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: synapse-data
+  namespace: synapse
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-encrypted
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: synapse
+  namespace: synapse
+spec:
+  ports:
+    - port: 8008
+  selector:
+    app: synapse
+---
+# Ingress for both Element (chat) and Synapse (matrix backend)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: synapse
+  namespace: synapse
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+    - host: matrix.isarcloud.eu
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: synapse
+                port:
+                  number: 8008
+    - host: chat.isarcloud.eu
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: element
+                port:
+                  number: 80

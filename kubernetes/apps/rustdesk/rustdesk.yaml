@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rustdesk
+---
+# hbbs - ID/Signaling Server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rustdesk-hbbs
+  namespace: rustdesk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rustdesk-hbbs
+  template:
+    metadata:
+      labels:
+        app: rustdesk-hbbs
+    spec:
+      containers:
+        - name: hbbs
+          image: rustdesk/rustdesk-server:latest
+          command: ["hbbs", "-r", "desk.isarcloud.eu", "-k", "_"]
+          ports:
+            - containerPort: 21115
+              protocol: TCP
+            - containerPort: 21116
+              protocol: TCP
+            - containerPort: 21116
+              protocol: UDP
+            - containerPort: 21118
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /root
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: rustdesk-data
+---
+# hbbr - Relay Server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rustdesk-hbbr
+  namespace: rustdesk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rustdesk-hbbr
+  template:
+    metadata:
+      labels:
+        app: rustdesk-hbbr
+    spec:
+      containers:
+        - name: hbbr
+          image: rustdesk/rustdesk-server:latest
+          command: ["hbbr", "-k", "_"]
+          ports:
+            - containerPort: 21117
+              protocol: TCP
+            - containerPort: 21119
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /root
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: rustdesk-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rustdesk-data
+  namespace: rustdesk
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-encrypted
+  resources:
+    requests:
+      storage: 1Gi
+---
+# NodePort services to expose RustDesk custom ports directly through the worker IP (10.10.25.101)
+apiVersion: v1
+kind: Service
+metadata:
+  name: rustdesk-hbbs
+  namespace: rustdesk
+spec:
+  type: NodePort
+  ports:
+    - name: hbbs-tcp
+      port: 21115
+      nodePort: 31115
+      protocol: TCP
+    - name: hbbs-tcp-udp
+      port: 21116
+      nodePort: 31116
+      protocol: TCP
+    - name: hbbs-udp
+      port: 21116
+      nodePort: 31116
+      protocol: UDP
+    - name: hbbs-ws
+      port: 21118
+      nodePort: 31118
+      protocol: TCP
+  selector:
+    app: rustdesk-hbbs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rustdesk-hbbr
+  namespace: rustdesk
+spec:
+  type: NodePort
+  ports:
+    - name: hbbr-tcp
+      port: 21117
+      nodePort: 31117
+      protocol: TCP
+    - name: hbbr-ws
+      port: 21119
+      nodePort: 31119
+      protocol: TCP
+  selector:
+    app: rustdesk-hbbr

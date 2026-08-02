@@ -1,0 +1,231 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: immich
+---
+# Immich strictly requires PostgreSQL with the pgvector extension.
+# We run a dedicated DB for it here.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-db
+  namespace: immich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immich-db
+  template:
+    metadata:
+      labels:
+        app: immich-db
+    spec:
+      containers:
+        - name: database
+          image: tensorchord/pgvecto-rs:pg14-v0.2.0
+          envFrom:
+            - secretRef:
+                name: immich-secret
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: immich-secret
+                  key: DB_PASSWORD
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: immich-secret
+                  key: DB_USERNAME
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: immich-secret
+                  key: DB_DATABASE_NAME
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: immich-db-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-db
+  namespace: immich
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: immich-db
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-db-data
+  namespace: immich
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-encrypted
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Redis for Immich
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-redis
+  namespace: immich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immich-redis
+  template:
+    metadata:
+      labels:
+        app: immich-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-redis
+  namespace: immich
+spec:
+  ports:
+    - port: 6379
+  selector:
+    app: immich-redis
+---
+# Immich Server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-server
+  namespace: immich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immich-server
+  template:
+    metadata:
+      labels:
+        app: immich-server
+    spec:
+      containers:
+        - name: server
+          image: ghcr.io/immich-app/immich-server:release
+          envFrom:
+            - secretRef:
+                name: immich-secret
+          env:
+            - name: REDIS_HOSTNAME
+              value: "immich-redis"
+          ports:
+            - containerPort: 2283
+          volumeMounts:
+            - name: upload
+              mountPath: /usr/src/app/upload
+      volumes:
+        - name: upload
+          persistentVolumeClaim:
+            # Note: This is where we will eventually attach the S3-CSI bridge!
+            claimName: immich-media
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-media
+  namespace: immich
+spec:
+  accessModes: [ReadWriteOnce]
+  # Using local SSD for now. Once S3 bridge is active, this PVC will be swapped for the S3 one.
+  storageClassName: longhorn-encrypted 
+  resources:
+    requests:
+      storage: 100Gi
+---
+# Immich Machine Learning
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-machine-learning
+  namespace: immich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immich-machine-learning
+  template:
+    metadata:
+      labels:
+        app: immich-machine-learning
+    spec:
+      containers:
+        - name: machine-learning
+          image: ghcr.io/immich-app/immich-machine-learning:release
+          envFrom:
+            - secretRef:
+                name: immich-secret
+          volumeMounts:
+            - name: model-cache
+              mountPath: /cache
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: immich-model-cache
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-model-cache
+  namespace: immich
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-encrypted
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-server
+  namespace: immich
+spec:
+  ports:
+    - port: 2283
+  selector:
+    app: immich-server
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: immich
+  namespace: immich
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+    - host: photos.isarcloud.eu
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: immich-server
+                port:
+                  number: 2283
