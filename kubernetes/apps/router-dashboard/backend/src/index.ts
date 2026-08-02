@@ -60,7 +60,8 @@ app.post('/api/wireguard/toggle', async (req, res) => {
 });
 
 app.post('/api/wireguard/peer', async (req, res) => {
-    const { interfaceName, comment, allowedAddress } = req.body;
+    const { interfaceName, comment, allowedAddress, endpointHost } = req.body;
+    const host = endpointHost || process.env.WG_ENDPOINT || 'home.aaronschmidt.de';
     try {
         // Fetch interface info to get server pubkey and port
         const ifaces = await runApiCommand('/interface/wireguard/print');
@@ -91,7 +92,7 @@ Address = ${allowedAddress}
 
 [Peer]
 PublicKey = ${serverPubKey}
-Endpoint = ${ENDPOINT_HOST}:${serverPort}
+Endpoint = ${host}:${serverPort}
 AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
 `;

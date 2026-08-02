@@ -5,7 +5,7 @@ namespace: authentik
 resources:
   - namespace.yaml
   - authentik-pvc.yaml
-  - authentik-secret.example.yaml # In reality, use your kubeseal sealed-secret here
+  - authentik-secret.sops.yaml # In reality, use your kubeseal sealed-secret here
   - authentik-server.yaml
   - authentik-worker.yaml
   - authentik-service.yaml

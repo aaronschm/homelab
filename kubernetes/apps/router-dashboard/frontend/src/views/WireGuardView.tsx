@@ -7,7 +7,7 @@ export default function WireGuardView() {
   const [data, setData] = useState<{interfaces: any[], peers: any[]}>({ interfaces: [], peers: [] });
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newPeer, setNewPeer] = useState({ interfaceName: '', comment: '', allowedAddress: '10.10.30.2/32' });
+  const [newPeer, setNewPeer] = useState({ interfaceName: '', comment: '', allowedAddress: '10.10.30.2/32', endpointHost: 'home.aaronschmidt.de' });
   const [generatedConfig, setGeneratedConfig] = useState<string | null>(null);
 
   const fetchData = () => {
@@ -147,9 +147,15 @@ export default function WireGuardView() {
                   <label className="block text-sm font-medium text-slate-400 mb-1">Device Name / Comment</label>
                   <input type="text" required value={newPeer.comment} onChange={e => setNewPeer({...newPeer, comment: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none focus:border-isar" placeholder="e.g. Aaron's iPhone" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-1">Allowed IP (Client Address)</label>
-                  <input type="text" required value={newPeer.allowedAddress} onChange={e => setNewPeer({...newPeer, allowedAddress: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none focus:border-isar" placeholder="10.10.30.2/32" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Allowed IP</label>
+                    <input type="text" required value={newPeer.allowedAddress} onChange={e => setNewPeer({...newPeer, allowedAddress: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none focus:border-isar" placeholder="10.10.30.2/32" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Server Endpoint</label>
+                    <input type="text" required value={newPeer.endpointHost} onChange={e => setNewPeer({...newPeer, endpointHost: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none focus:border-isar" placeholder="home.aaronschmidt.de" />
+                  </div>
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
                   <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-slate-400 hover:text-white transition-colors">Cancel</button>
