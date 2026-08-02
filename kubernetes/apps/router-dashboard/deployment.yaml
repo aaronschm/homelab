@@ -15,15 +15,25 @@ spec:
     spec:
       containers:
         - name: backend
-          image: router-dashboard-backend:latest # We'll set up ghcr build later
+          image: router-dashboard-backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4000
+          env:
+            - name: DATA_DIR
+              value: /app/data
           envFrom:
             - secretRef:
                 name: router-credentials
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
         - name: frontend
           image: router-dashboard-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: router-dashboard-data
