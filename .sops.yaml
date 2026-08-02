@@ -6,6 +6,11 @@ creation_rules:
     encrypted_regex: (password|secret|pass|key|token|credential)
     age: "age1gnkmh0kwyds2ckzhe96cqjxg08llfgp8lkmxa3z9vgzd33s25pks0d00pp"
 
+  # Ansible host_vars: same key-name matching as group_vars.
+  - path_regex: ansible/host_vars/.*\.sops\.ya?ml$
+    encrypted_regex: (password|secret|pass|key|token|credential)
+    age: "age1gnkmh0kwyds2ckzhe96cqjxg08llfgp8lkmxa3z9vgzd33s25pks0d00pp"
+
   # Kubernetes secrets — encrypt entire data / stringData blocks.
   - path_regex: .*\.sops\.yaml$
     encrypted_regex: ^(data|stringData|password|secret|pass|key|env|tokens|secrets|token)$

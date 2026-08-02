@@ -1,0 +1,21 @@
+mikrotik_password: ENC[AES256_GCM,data:IxlKPs7cYZN7UM4ToYLwJKzCF9A=,iv:iRlHMqGv1d4EJI6E9QhX1+fZjuaoxtEPETOV0jGNktg=,tag:ZjmcsDEBgnjNrl1k7Sz5vg==,type:str]
+sops:
+    kms: []
+    gcp_kms: []
+    azure_kv: []
+    hc_vault: []
+    age:
+        - recipient: age1gnkmh0kwyds2ckzhe96cqjxg08llfgp8lkmxa3z9vgzd33s25pks0d00pp
+          enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBFeFh5a09CN0x1T2RRaGUy
+            L2thN1RBNko1VWlpdDZaSkFrR2ZzTVhONGtNCnNaZ0J2MzQyZHk1dXJka0xuT1Fo
+            OXI1STZKbklTMkpZUVZCVy9yeWdBME0KLS0tIEFWZmdIdkVjemQ2VHZiNE9CLzNh
+            cm5nS3JCVzVZdHVhOUtRcHpJSnBQNm8KcRUf3wlZ6BlYOtRUZ0LkGSmTg9RQbJR3
+            HS0bYef1gM04Ic0l+1Ptg8lF4snpZVUWeHAYSHGOFC2Ic3OKoYQMmw==
+            -----END AGE ENCRYPTED FILE-----
+    lastmodified: "2026-08-02T21:20:03Z"
+    mac: ENC[AES256_GCM,data:BmhEHka6/SSA81a7t636Aco5MyAgOdxVClLC0TfYyGedljX1YR/7AXG6wphL1Z8ZLViTpL0EYp+7E3B17GWNl6YqGQi6csin/jJld/DXXzvDKXuak/VDealAbQnYJ3AeiNhDcFotJKC24LlaVFEGKEbfZY0aQCUhE5rmEFqFzKc=,iv:jJrWnzQosQEReX496yndXDVftwtjfjqMO1uvk2zBXoc=,tag:fHbWCv+pkHRt7JH6NvKu7g==,type:str]
+    pgp: []
+    encrypted_regex: (password|secret|pass|key|token|credential)
+    version: 3.8.1
