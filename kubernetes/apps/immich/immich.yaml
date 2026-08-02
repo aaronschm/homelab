@@ -152,7 +152,7 @@ metadata:
 spec:
   accessModes: [ReadWriteOnce]
   # Using local SSD for now. Once S3 bridge is active, this PVC will be swapped for the S3 one.
-  storageClassName: longhorn-encrypted 
+  storageClassName: s3-csi 
   resources:
     requests:
       storage: 100Gi

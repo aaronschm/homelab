@@ -14,7 +14,7 @@ metadata:
   namespace: media
 spec:
   accessModes: [ReadWriteMany] # Needs RWX so all apps can read/write the same folder
-  storageClassName: longhorn-encrypted # UPDATE THIS to your MinIO S3-CSI or HDD class later
+  storageClassName: s3-csi # UPDATE THIS to your MinIO S3-CSI or HDD class later
   resources:
     requests:
       storage: 100Gi

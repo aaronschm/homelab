@@ -1,0 +1,10 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: s3-csi
+provisioner: ch.ctrox.csi.s3-driver
+parameters:
+  mounter: rclone
+  secretNamespace: kube-system
+  secretName: csi-s3-secret
+  # Each PVC will automatically create a uniquely named bucket in MinIO
