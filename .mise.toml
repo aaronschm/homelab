@@ -1,5 +1,7 @@
 [tools]
-"terraform" = "1.5"
+# Pin exact versions so 'task setup' always installs a known-good toolchain.
+# To upgrade: change the version here, run 'task setup', test, commit.
+"terraform" = "1.12.0"   # >= 1.6 required by providers; 1.12 = latest stable as of 2026-08
 "talosctl" = "1.7"
 "talhelper" = "3.0"
 "sops" = "3.8"
