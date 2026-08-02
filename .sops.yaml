@@ -1,9 +1,9 @@
 creation_rules:
-  # Ansible group_vars: encrypt known secret fields by key name.
-  # The community.sops vars plugin reads this transparently at playbook run time.
+  # Ansible group_vars: encrypt fields whose key name CONTAINS a secret word.
+  # The regex is matched against the key name; no anchors so "mikrotik_password"
+  # and "s3_secret_key" are both caught.
   - path_regex: ansible/group_vars/all\.sops\.ya?ml$
-    encrypted_regex: >-
-      ^(password|secret|pass|key|token|credential)$
+    encrypted_regex: (password|secret|pass|key|token|credential)
     age: "age1gnkmh0kwyds2ckzhe96cqjxg08llfgp8lkmxa3z9vgzd33s25pks0d00pp"
 
   # Kubernetes secrets — encrypt entire data / stringData blocks.
