@@ -19,9 +19,11 @@ tasks:
 
   # ---------------------------------------------------------------- tooling ---
   setup:
-    desc: Install the pinned toolchain via mise
+    desc: Install the pinned toolchain via mise + Python SSH dependencies for Ansible
     cmds:
       - mise install
+      - pip install --user --break-system-packages paramiko ansible-pylibssh
+      - ansible-galaxy collection install -r ansible/requirements.yml
       - 'echo "Toolchain ready. Next: task secrets:init"'
 
   # ---------------------------------------------------------------- secrets ---
