@@ -17,18 +17,43 @@ Internet ──► MikroTik CRS309 (gateway, WireGuard, NAT)
              MikroTik CRS310 (PoE switch, VLAN distribution)
                 │
              Proxmox VE — node "pve" (10.10.20.2)
-              ├── LXC 20101  Registry / Zot mirror      VLAN 20
-              ├── LXC 20100  Forgejo git server          VLAN 20
               ├── LXC 20099  AdGuard Home (DNS)          VLAN 20
-              ├── LXC 24010  Traefik DMZ reverse proxy   VLAN 24
-              ├── LXC 20102  Uptime Kuma                 VLAN 20
-              ├── VM  25011  Talos control plane         VLAN 25 (dark)
-              └── VM  25101  Talos worker + MinIO        VLAN 25 (dark)
-                              │  6×18 TB hostPath drives
-                              └── Kubernetes cluster
-                                   ├── platform/  Cilium, Longhorn, MinIO, CSI-S3
-                                   ├── apps/      OwnCloud, Immich, Jellyfin, …
-                                   └── common/    NetworkPolicies, sealed-secrets
+              ├── LXC 20100  Forgejo git server           VLAN 20
+              ├── LXC 20101  Registry / Zot mirror        VLAN 20
+              ├── LXC 20102  Uptime Kuma                  VLAN 20
+              ├── LXC 24010  Traefik DMZ reverse proxy    VLAN 24
+              ├── VM  25011  Talos control plane          VLAN 25 (dark)
+              └── VM  25101  Talos worker + MinIO         VLAN 25 (dark)
+                              │  1×400 GB Longhorn SSD  (scsi1)
+                              │  6×18 TB raw passthrough (scsi2-7)
+                              └── Kubernetes cluster (v1.34 · Cilium · Argo CD)
+                                   ├── platform/
+                                   │    ├── Cilium CNI (kube-proxy replaced, WireGuard pod encryption)
+                                   │    ├── Longhorn (default StorageClass, LUKS encrypted)
+                                   │    ├── MinIO (6×18 TB, EC:2 ≈ 72 TB usable)
+                                   │    ├── PostgreSQL (shared DB for all apps)
+                                   │    ├── CSI-S3 driver (MinIO-backed PVCs)
+                                   │    ├── local-path-provisioner (fast node-local PVCs)
+                                   │    └── Grafana Alloy (log collection, IP anonymisation)
+                                   └── apps/
+                                        ├── network.isarcloud.eu  (WireGuard/VLAN/NAT dashboard)
+                                        ├── legal.isarcloud.eu    (GDPR: Datenschutzerklärung, AVV, consent)
+                                        ├── metrics.isarcloud.eu  (Grafana dashboards)
+                                        ├── vault.isarcloud.eu    (Vaultwarden password manager)
+                                        ├── auth.isarcloud.eu     (Authentik SSO/OIDC)
+                                        ├── files.isarcloud.eu    (OwnCloud Infinite Scale)
+                                        ├── photos.isarcloud.eu   (Immich photo library)
+                                        ├── docs.isarcloud.eu     (Paperless-ngx)
+                                        ├── media.isarcloud.eu    (Jellyfin)
+                                        ├── requests.isarcloud.eu (Overseerr)
+                                        ├── movies.isarcloud.eu   (Radarr)
+                                        ├── tv.isarcloud.eu       (Sonarr)
+                                        ├── torrent.isarcloud.eu  (qBittorrent)
+                                        ├── matrix.isarcloud.eu   (Synapse, EU-only federation)
+                                        ├── chat.isarcloud.eu     (Element web)
+                                        ├── RustDesk relay        (remote desktop)
+                                        ├── SimpleX SMP server    (zero-metadata chat relay)
+                                        └── Pelican Panel         (game server management)
 ```
 
 | VLAN | Name | Subnet | Role | Internet |
@@ -50,7 +75,7 @@ ansible-galaxy collection install -r ansible/requirements.yml
 # 1. Secrets bootstrap (once per machine)
 task secrets:init                                  # generates _local/age.key
 task vars:init                                     # creates ansible/group_vars/all.sops.yaml from template
-# Edit ansible/group_vars/all.sops.yaml, then:
+# Open the file with your editor, fill in mikrotik_password, then encrypt it:
 SOPS_AGE_KEY_FILE=_local/age.key sops --encrypt --in-place ansible/group_vars/all.sops.yaml
 
 # 2. Copy and fill in Terraform variable files
@@ -59,8 +84,9 @@ cp infrastructure/terraform/talos/terraform.tfvars.example   infrastructure/terr
 # Edit both files with your real PVE API token, SSH key, drive paths, etc.
 
 # 3. Full bring-up
-export MIKROTIK_AUTOMATION_PASSWORD="..."   # min 16 chars — for the Ansible-managed user
-export MIKROTIK_DASHBOARD_PASSWORD="..."   # min 16 chars — for the network-dashboard UI user
+# Use single quotes around passwords — double quotes break if the password contains ! or $
+export MIKROTIK_AUTOMATION_PASSWORD='yourAutomationPassword'   # for the Ansible-managed service account
+export MIKROTIK_DASHBOARD_PASSWORD='yourDashboardPassword'     # for network.isarcloud.eu login
 task all    # firewall (MikroTik) → infra (Proxmox) → cluster (Talos) → gitops (Argo CD) → secrets
 ```
 
@@ -88,6 +114,32 @@ task all    # firewall (MikroTik) → infra (Proxmox) → cluster (Talos) → gi
 | `ansible/group_vars/all.sops.yaml` | `mikrotik_password`, S3 backup creds |
 
 To edit any secret: `task secrets:edit -- path/to/file.sops.yaml`
+
+## Services
+
+| URL | Service | Status | Notes |
+|-----|---------|--------|-------|
+| `network.isarcloud.eu` | Network Dashboard | ✅ deployed | WireGuard, VLAN, NAT UI for CRS309 + CRS310 |
+| `legal.isarcloud.eu` | Legal pages | ✅ deployed | GDPR: Datenschutzerklärung, AVV, consent, deletion |
+| `metrics.isarcloud.eu` | Grafana | ✅ deployed | Cluster and app dashboards |
+| `vault.isarcloud.eu` | Vaultwarden | 🟡 planned | Migrate from old LXC, signups disabled |
+| `files.isarcloud.eu` | OwnCloud Infinite Scale | 🟡 planned | File sync via MinIO S3 backend |
+| `photos.isarcloud.eu` | Immich | 🟡 planned | Photo library, face recognition opt-in (Art. 9 DSGVO) |
+| `docs.isarcloud.eu` | Paperless-ngx | 🟡 planned | OCR document management |
+| `media.isarcloud.eu` | Jellyfin | 🟡 planned | Media server, library on MinIO 18 TB |
+| `requests.isarcloud.eu` | Overseerr | 🟡 planned | Movie/show request manager |
+| `movies.isarcloud.eu` | Radarr | 🟡 planned | Movie collection manager |
+| `tv.isarcloud.eu` | Sonarr | 🟡 planned | TV show collection manager |
+| `torrent.isarcloud.eu` | qBittorrent | 🟡 planned | Download client |
+| `matrix.isarcloud.eu` | Synapse | 🟡 planned | Matrix homeserver, EU-only federation |
+| `chat.isarcloud.eu` | Element Web | 🟡 planned | Matrix client UI |
+| *(no public URL)* | Authentik | 🟡 planned | SSO/OIDC for all services |
+| *(no public URL)* | RustDesk | ✅ deployed | Self-hosted remote desktop relay |
+| *(no public URL)* | SimpleX SMP | ✅ deployed | Zero-metadata chat relay |
+| *(no public URL)* | Pelican Panel | ✅ deployed | Game server management |
+| *(no public URL)* | PostgreSQL | ✅ deployed | Shared database (all apps) |
+| *(no public URL)* | MinIO | ✅ deployed | S3 object store, 6×18 TB EC:2 |
+| *(no public URL)* | Longhorn | ✅ deployed | Encrypted PVC storage |
 
 ## Repository structure
 

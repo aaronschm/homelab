@@ -219,9 +219,12 @@
       </div>
     </div>
 
-    <div class="note ok">Run everything from <b>your PC</b>:
-      <code>export MIKROTIK_AUTOMATION_PASSWORD=… MIKROTIK_DASHBOARD_PASSWORD=… &amp;&amp; task all</code>
-      walks the full flow end-to-end.</div>
+    <div class="note ok">
+      <b>Run everything from your PC — replace the passwords with yours (single quotes!):</b><br/>
+      <code>export MIKROTIK_AUTOMATION_PASSWORD='myAutomationPass' MIKROTIK_DASHBOARD_PASSWORD='myDashboardPass'</code><br/>
+      <code>task all</code><br/>
+      <span class="faint">That one command runs: MikroTik firewall → Proxmox VMs/LXCs → Talos cluster → Argo CD → all Kubernetes secrets.</span>
+    </div>
   </section>
 
   <!-- ARCHITECTURE -->
@@ -261,12 +264,12 @@
       <div class="layer">
         <div class="ltitle"><span class="swatch" style="background:var(--accent2)"></span>Kubernetes (v1.34) · Argo CD · Cilium CNI</div>
         <div class="nodes">
-          <div class="node"><div class="nh">💾 Longhorn</div><div class="nsub">default storage · LUKS-encrypted · beta SSD</div></div>
-          <div class="node"><div class="nh">🪣 MinIO</div><div class="nsub">S3 object store · 6×18 TB · EC:2 ≈ 72 TB</div></div>
-          <div class="node"><div class="nh">🐘 PostgreSQL</div><div class="nsub">shared database</div></div>
-          <div class="node"><div class="nh">🌐 network.isarcloud.eu</div><div class="nsub">WireGuard · VLAN · NAT dashboard</div></div>
-          <div class="node"><div class="nh">⚖️ legal.isarcloud.eu</div><div class="nsub">Datenschutzerklärung · AVV · consent</div></div>
-          <div class="node"><div class="nh">🧩 Your pods</div><div class="nsub">kubernetes/apps/…</div></div>
+          <div class="node"><div class="nh">🏗️ Platform</div><div class="nsub">Cilium · Longhorn · MinIO · PostgreSQL · CSI-S3 · local-path · Alloy</div></div>
+          <div class="node"><div class="nh">🌐 Always-on</div><div class="nsub">network.isarcloud.eu · legal.isarcloud.eu · metrics.isarcloud.eu · Pelican · RustDesk · SimpleX</div></div>
+          <div class="node"><div class="nh">🔐 Auth</div><div class="nsub">Authentik (SSO) · Vaultwarden (passwords)</div></div>
+          <div class="node"><div class="nh">☁️ Files</div><div class="nsub">files.isarcloud.eu (OwnCloud) · photos.isarcloud.eu (Immich) · docs.isarcloud.eu (Paperless)</div></div>
+          <div class="node"><div class="nh">🎬 Media</div><div class="nsub">media.isarcloud.eu (Jellyfin) · requests · movies · tv · torrent</div></div>
+          <div class="node"><div class="nh">💬 Chat</div><div class="nsub">matrix.isarcloud.eu (Synapse) · chat.isarcloud.eu (Element) · SimpleX relay</div></div>
         </div>
       </div>
     </div>
@@ -395,68 +398,154 @@
   <!-- SERVICES -->
   <section id="services">
     <h2>Services</h2>
-    <p class="lead">Anything in <code>kubernetes/apps/</code> is auto-deployed by Argo CD —
-       add a folder, commit, and it appears. See <code>docs/roadmap.md</code> for the full catalogue.</p>
+    <p class="lead">Everything in <code>kubernetes/apps/</code> is auto-deployed by Argo CD.
+       Add a folder + kustomization, commit, and it appears. Fully encrypted secrets in Git via SOPS.</p>
+
+    <h3>🏗️ Platform (always running)</h3>
     <div class="grid cols-3">
+      <div class="card"><span class="ico">☸️</span><h4>Cilium CNI <span class="pill on">deployed</span></h4>
+        <p>Replaces kube-proxy entirely. WireGuard pod-to-pod encryption. Hubble observability.
+           Default-deny NetworkPolicies at eBPF level for all app namespaces.</p>
+        <span class="path">kubernetes/platform/cilium</span></div>
+
+      <div class="card"><span class="ico">💾</span><h4>Longhorn <span class="pill on">deployed</span></h4>
+        <p>Default storage class. LUKS/AES-XTS-256 encrypted at rest. 6-hourly backups
+           to MinIO via S3. PVC data is replicated and can survive node loss.</p>
+        <span class="path">kubernetes/platform/longhorn</span></div>
+
+      <div class="card"><span class="ico">🪣</span><h4>MinIO <span class="pill on">deployed</span></h4>
+        <p>S3 object store on 6 raw 18 TB drives. EC:2 ≈ 72 TB usable, tolerates 2
+           simultaneous drive failures. All apps use <code>minio.minio.svc:9000</code>.</p>
+        <span class="path">kubernetes/platform/minio</span></div>
+
       <div class="card"><span class="ico">🐘</span><h4>PostgreSQL <span class="pill on">deployed</span></h4>
-        <p>StatefulSet on a Longhorn PVC, backed up off-site. Shared database for all apps.</p>
+        <p>Shared database for all apps. StatefulSet on a Longhorn PVC. Authentik, Immich,
+           OwnCloud, Paperless, Synapse, Pelican all point here.</p>
         <span class="path">kubernetes/apps/postgresql</span></div>
 
-      <div class="card"><span class="ico">🎮</span><h4>Pelican <span class="pill on">deployed</span></h4>
-        <p>Game-server management. Panel in Kubernetes; Wings on VM 24020. Backs up to MinIO.</p>
-        <span class="path">kubernetes/apps/pelican-panel</span></div>
+      <div class="card"><span class="ico">📦</span><h4>CSI-S3 driver <span class="pill on">deployed</span></h4>
+        <p>Kubernetes CSI driver that provisions PVCs backed by MinIO buckets.
+           Used for large media volumes that shouldn't be on Longhorn.</p>
+        <span class="path">kubernetes/platform/csi-s3</span></div>
 
+      <div class="card"><span class="ico">📊</span><h4>Grafana Alloy <span class="pill on">deployed</span></h4>
+        <p>DaemonSet log collector. Privacy pipeline: IP addresses SHA-256 hashed,
+           User-Agent strings dropped, auth tokens stripped. Prometheus metrics forwarded unmodified.</p>
+        <span class="path">kubernetes/platform/alloy</span></div>
+
+      <div class="card"><span class="ico">🛤️</span><h4>local-path-provisioner <span class="pill on">deployed</span></h4>
+        <p>Fast node-local storage class for config/cache PVCs (Jellyfin config,
+           Immich model cache, etc.) that don't need replication.</p>
+        <span class="path">kubernetes/platform/local-path-provisioner</span></div>
+    </div>
+
+    <h3>🌐 Always-on Services</h3>
+    <div class="grid cols-3">
       <div class="card"><span class="ico">🌐</span><h4>Network Dashboard <span class="pill on">deployed</span></h4>
-        <p><code>network.isarcloud.eu</code> — WireGuard peer management, VLAN viewer, NAT rules.
-           Client-side WG key generation (private key never leaves the browser).
-           Manages both CRS309 and CRS310.</p>
+        <p><code>network.isarcloud.eu</code> — WireGuard peer manager, VLAN viewer, NAT rules.
+           Client-side WG key generation (private key never leaves your browser).
+           Manages both CRS309 (gateway) and CRS310 (switch).</p>
         <span class="path">kubernetes/apps/router-dashboard</span></div>
 
       <div class="card"><span class="ico">⚖️</span><h4>Legal pages <span class="pill on">deployed</span></h4>
         <p><code>legal.isarcloud.eu</code> — Datenschutzerklärung, AVV, face-recognition consent,
-           data deletion form. Public (no auth). Served by an nginx pod from a ConfigMap.</p>
+           data deletion form. Public, no auth. Served by nginx from a ConfigMap.</p>
         <span class="path">kubernetes/apps/legal</span></div>
 
-      <div class="card"><span class="ico">☸️</span><h4>Cilium CNI <span class="pill on">deployed</span></h4>
-        <p>Replaces kube-proxy. WireGuard pod-to-pod encryption. Hubble observability.
-           Default-deny NetworkPolicies enforced at eBPF level for all 11 app namespaces.</p>
-        <span class="path">kubernetes/platform/cilium</span></div>
+      <div class="card"><span class="ico">📈</span><h4>Grafana <span class="pill on">deployed</span></h4>
+        <p><code>metrics.isarcloud.eu</code> — dashboards for cluster, storage, and application metrics.
+           Receives anonymised metrics + logs from Alloy.</p>
+        <span class="path">kubernetes/apps/grafana</span></div>
 
-      <div class="card"><span class="ico">📊</span><h4>Grafana Alloy <span class="pill on">deployed</span></h4>
-        <p>Log collection with privacy pipeline: IP addresses SHA-256 hashed,
-           User-Agent strings dropped, tokens stripped. Prometheus metrics forwarded unmodified.</p>
-        <span class="path">kubernetes/platform/alloy</span></div>
+      <div class="card"><span class="ico">🎮</span><h4>Pelican Panel <span class="pill on">deployed</span></h4>
+        <p>Game-server management panel. Wings daemon on a separate VM (VLAN 24).
+           Backs up save data to MinIO automatically.</p>
+        <span class="path">kubernetes/apps/pelican-panel</span></div>
 
+      <div class="card"><span class="ico">🖥️</span><h4>RustDesk <span class="pill on">deployed</span></h4>
+        <p>Self-hosted remote desktop relay and signalling server.
+           Replaces TeamViewer/AnyDesk — no data leaves your infrastructure.</p>
+        <span class="path">kubernetes/apps/rustdesk</span></div>
+
+      <div class="card"><span class="ico">💬</span><h4>SimpleX SMP Server <span class="pill on">deployed</span></h4>
+        <p>Self-hosted SimpleX Chat relay. Messages never stored, only relayed.
+           Zero metadata — not even user identifiers.</p>
+        <span class="path">kubernetes/apps/simplex</span></div>
+    </div>
+
+    <h3>🔐 Auth & Passwords</h3>
+    <div class="grid cols-3">
       <div class="card"><span class="ico">🔐</span><h4>Authentik <span class="pill soon">planned</span></h4>
-        <p>SSO / OIDC. Forward-auth middleware on Traefik. Onboarding flow includes AVV + face-consent.</p>
+        <p>SSO / OIDC for all services. Forward-auth middleware on Traefik.
+           Onboarding flow presents AVV + face-consent pages before account creation.</p>
         <span class="path">kubernetes/apps/authentik</span></div>
 
       <div class="card"><span class="ico">🔑</span><h4>Vaultwarden <span class="pill soon">planned</span></h4>
-        <p><code>vault.isarcloud.eu</code>. Migrate SQLite + attachments from the old LXC.
-           Signups disabled by default (invite-only).</p>
+        <p><code>vault.isarcloud.eu</code> — migrating from old LXC. Signups disabled by default (invite-only).
+           SQLite + attachments backed up to MinIO.</p>
         <span class="path">kubernetes/apps/vaultwarden</span></div>
+    </div>
 
+    <h3>☁️ Files, Photos & Documents</h3>
+    <div class="grid cols-3">
       <div class="card"><span class="ico">☁️</span><h4>OwnCloud Infinite Scale <span class="pill soon">planned</span></h4>
-        <p>File sync &amp; share. Primary storage via MinIO S3 objectstore.</p>
+        <p><code>files.isarcloud.eu</code> — file sync &amp; share.
+           Primary storage via MinIO S3 objectstore (not local disk).</p>
         <span class="path">kubernetes/apps/owncloud</span></div>
 
       <div class="card"><span class="ico">🖼️</span><h4>Immich <span class="pill soon">planned</span></h4>
-        <p>Photo library. Media on MinIO 18 TB drives. Face recognition requires explicit
-           consent (Art. 9 DSGVO) — consent page at <code>legal.isarcloud.eu/consent-face.html</code>.</p>
+        <p><code>photos.isarcloud.eu</code> — photo &amp; video library. Media on MinIO S3.
+           Face recognition requires explicit consent (Art. 9 DSGVO) via
+           <code>legal.isarcloud.eu/consent-face.html</code>.</p>
         <span class="path">kubernetes/apps/immich</span></div>
 
+      <div class="card"><span class="ico">📄</span><h4>Paperless-ngx <span class="pill soon">planned</span></h4>
+        <p><code>docs.isarcloud.eu</code> — OCR document management. Ingests scans, receipts, letters.
+           Full-text search. Stored on Longhorn.</p>
+        <span class="path">kubernetes/apps/paperless</span></div>
+    </div>
+
+    <h3>🎬 Media</h3>
+    <div class="grid cols-3">
       <div class="card"><span class="ico">🎬</span><h4>Jellyfin <span class="pill soon">planned</span></h4>
-        <p>Media server. Media on MinIO 18 TB drives. Config on <code>local-path</code>.</p>
+        <p><code>media.isarcloud.eu</code> — media server. Library on MinIO S3 (18 TB drives).
+           Config on <code>local-path</code>. Hardware transcoding via GPU passthrough (future).</p>
         <span class="path">kubernetes/apps/jellyfin</span></div>
 
-      <div class="card"><span class="ico">💬</span><h4>Matrix Synapse <span class="pill soon">planned</span></h4>
-        <p>Self-hosted chat. Federation restricted to EU IP ranges (Traefik IPAllowList).
-           Client API unrestricted.</p>
+      <div class="card"><span class="ico">🎞️</span><h4>Overseerr <span class="pill soon">planned</span></h4>
+        <p><code>requests.isarcloud.eu</code> — request management for Jellyfin.
+           Users request movies/shows; syncs with Radarr/Sonarr.</p>
+        <span class="path">kubernetes/apps/media</span></div>
+
+      <div class="card"><span class="ico">🎥</span><h4>Radarr <span class="pill soon">planned</span></h4>
+        <p><code>movies.isarcloud.eu</code> — movie collection manager. Monitors releases,
+           downloads via qBittorrent, organises library on MinIO.</p>
+        <span class="path">kubernetes/apps/media</span></div>
+
+      <div class="card"><span class="ico">📺</span><h4>Sonarr <span class="pill soon">planned</span></h4>
+        <p><code>tv.isarcloud.eu</code> — TV show collection manager.
+           Same pipeline as Radarr but for series &amp; episodes.</p>
+        <span class="path">kubernetes/apps/media</span></div>
+
+      <div class="card"><span class="ico">⬇️</span><h4>qBittorrent <span class="pill soon">planned</span></h4>
+        <p><code>torrent.isarcloud.eu</code> — torrent client. Used by Radarr/Sonarr as the
+           download client. Downloads land on MinIO mount.</p>
+        <span class="path">kubernetes/apps/media</span></div>
+    </div>
+
+    <h3>💬 Communication</h3>
+    <div class="grid cols-3">
+      <div class="card"><span class="ico">💬</span><h4>Matrix Synapse + Element <span class="pill soon">planned</span></h4>
+        <p><code>matrix.isarcloud.eu</code> (server) · <code>chat.isarcloud.eu</code> (Element web).
+           Federation restricted to EU IP ranges via Traefik IPAllowList.</p>
         <span class="path">kubernetes/apps/synapse</span></div>
     </div>
-    <div class="note">Services needing a database point at <code>postgresql.postgresql.svc:5432</code>;
-      services needing object storage use <code>minio.minio.svc:9000</code>.
-      See <code>docs/roadmap.md</code> for the full catalogue and GDPR checklist.</div>
+
+    <div class="note">Platform services talk to each other in-cluster:
+      DB at <code>postgresql.postgresql.svc:5432</code> ·
+      S3 at <code>minio.minio.svc:9000</code> ·
+      ingress via Traefik (DMZ VLAN 24 → cluster VLAN 25).
+      See <code>docs/roadmap.md</code> for full catalogue and GDPR checklist.</div>
   </section>
 
   <!-- GETTING STARTED -->

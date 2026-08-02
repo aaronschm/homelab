@@ -35,9 +35,9 @@ Grafana Alloy (privacy-preserving log pipeline).
 | MinIO | ✅ | pod | 6×18 TB hostPath, EC:2 (~72 TB usable). S3 endpoint for all apps. |
 | Longhorn | ✅ | pod | Default PVC class on beta SSD. 6-hourly backups to MinIO. |
 | PostgreSQL | ✅ | pod | Shared DB for Authentik, Immich, OwnCloud, Paperless, etc. |
-| OwnCloud Infinite Scale | 🟡 | pod | `cloud.isarcloud.eu`. Primary storage via MinIO S3 objectstore. |
+| OwnCloud Infinite Scale | 🟡 | pod | `files.isarcloud.eu`. Primary storage via MinIO S3 objectstore. |
 | Immich | 🟡 | pod | `photos.isarcloud.eu`. Media on MinIO S3 (18 TB drives); model-cache on `local-path`. |
-| Paperless-ngx | 🟡 | pod | OCR document management; PostgreSQL + Longhorn PVC. |
+| Paperless-ngx | 🟡 | pod | `docs.isarcloud.eu`. OCR document management; PostgreSQL + Longhorn PVC. |
 | Stirling-PDF | 🔭 | pod | Stateless PDF tools. |
 | Gameserver backup | ✅ | — | `mc mirror` Wings data → MinIO. |
 
@@ -47,7 +47,7 @@ Grafana Alloy (privacy-preserving log pipeline).
 |---|---|---|---|
 | Jellyfin | 🟡 | pod | `media.isarcloud.eu`. Media on MinIO S3 (18 TB drives); config on `local-path`. |
 | Jellyseerr | 🔭 | pod | Requests front-end for Jellyfin. |
-| Arr stack | 🔭 | pod | Prowlarr + Sonarr + Radarr; shares MinIO media bucket. |
+| Arr stack | ✅ | pod | Overseerr (`requests`) + Radarr (`movies`) + Sonarr (`tv`) + qBittorrent (`torrent`). Manifests in `kubernetes/apps/media/`. |
 | Navidrome | 🔭 | pod | Music streaming. |
 | Audiobookshelf | 🔭 | pod | Audiobooks + podcasts. |
 | Kavita | 🔭 | pod | Manga/comics/e-books. |
@@ -88,7 +88,7 @@ Grafana Alloy (privacy-preserving log pipeline).
 | Uptime Kuma | ✅ | LXC `20102` | Uptime monitoring + notifications. |
 | Scrutiny | 🟡 | pod | S.M.A.R.T. monitoring; worker-node hostPath + privileged access. |
 | VictoriaMetrics | 🔭 | pod | Long-term metrics storage. |
-| Grafana | 🟡 | pod | Dashboards; receives anonymised metrics from Alloy. |
+| Grafana | ✅ | pod | `metrics.isarcloud.eu`. Dashboards; receives anonymised metrics from Alloy. |
 | Loki | 🔭 | pod | Log aggregation; chunks stored in MinIO. |
 | Homepage | 🔭 | pod | Service overview dashboard. |
 
@@ -97,8 +97,8 @@ Grafana Alloy (privacy-preserving log pipeline).
 | Service | Status | Where | Notes |
 |---|---|---|---|
 | Matrix Synapse | 🟡 | pod | `chat.isarcloud.eu`. Federation restricted to EU IP ranges only (Traefik IPAllowList). |
-| SimplexChat server | 🔭 | pod | Manifest scaffolded in `kubernetes/apps/simplex/`. |
-| RustDesk | 🔭 | LXC | Self-hosted remote desktop relay. |
+| SimplexChat server | ✅ | pod | Manifest in `kubernetes/apps/simplex/`. Zero-metadata relay — messages never stored. |
+| RustDesk | ✅ | pod | Self-hosted remote desktop relay + signalling. Manifest in `kubernetes/apps/rustdesk/`. |
 | Private AI assistant | 🔭 | VM | GPU-gated; future hardware. |
 
 ---
