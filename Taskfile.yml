@@ -125,8 +125,8 @@ tasks:
     cmds:
       - terraform init -input=false
       - terraform apply -auto-approve
-      - terraform output -raw kubeconfig > ../../{{.KUBECONFIG_OUT}}
-      - terraform output -raw talosconfig > ../../{{.TALOSCONFIG_OUT}}
+      - terraform output -raw kubeconfig > ../../../{{.KUBECONFIG_OUT}}
+      - terraform output -raw talosconfig > ../../../{{.TALOSCONFIG_OUT}}
       - 'echo "Wrote kubeconfig and talosconfig"'
 
   kubeconfig:
@@ -136,7 +136,7 @@ tasks:
       - sh: command -v terraform >/dev/null 2>&1
         msg: "Missing terraform in PATH. Run: task setup"
     cmds:
-      - terraform output -raw kubeconfig > ../../{{.KUBECONFIG_OUT}}
+      - terraform output -raw kubeconfig > ../../../{{.KUBECONFIG_OUT}}
 
   # ------------------------------------------------------- kubernetes ---
   gitops:
