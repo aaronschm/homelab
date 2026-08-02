@@ -8,11 +8,7 @@ vlans:
   cluster: { id: 25, subnet: "10.10.25.0/24" }
 
 firewall_rules:
-  - name: "FastTrack Rule"
     proto: tcp
-    action: "fasttrack-connection"
-    # Note: Ansible mikrotik.yml needs to be updated to support fasttrack and state matching,
-    # For now, these represent the intent based on the export.
     
   - name: "PC to Proxmox API"
     src_ips: ["10.10.10.0/24"]
