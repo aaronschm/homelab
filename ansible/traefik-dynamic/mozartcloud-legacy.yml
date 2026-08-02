@@ -1,0 +1,228 @@
+http:
+  routers:
+    # Nextcloud
+    mozartcloud:
+      entryPoints:
+        - websecure
+      rule: "Host(`mozartcloud.app`)"
+      service: nextcloud
+      middlewares:
+        - https-headers
+      tls:
+        certResolver: letsencrypt
+
+    # Homeassistant
+    homeassistant:
+      entryPoints:
+        - websecure
+      rule: "Host(`ha.mozartcloud.app`)"
+      service: homeassistant
+      tls:
+        certResolver: letsencrypt
+
+    # Vaultwarden
+    vaultwarden:
+      entryPoints:
+        - websecure
+      rule: "Host(`vault.mozartcloud.app`)"
+      service: vaultwarden
+      tls:
+        certResolver: letsencrypt
+
+    # Authentik (Legacy)
+    authentik-legacy:
+      entryPoints:
+        - websecure
+      rule: "Host(`auth.mozartcloud.app`)"
+      service: authentik-legacy
+      middlewares:
+        - https-headers
+      tls:
+        certResolver: letsencrypt
+
+    # Pelican Panel
+    pelican-panel:
+      rule: "Host(`pelican.mozartcloud.app`)"
+      entryPoints:
+        - websecure
+      service: "pelican-panel-svc"
+      middlewares:
+        - "https-headers"
+      tls:
+        certResolver: letsencrypt
+
+    # Pelican Wings
+    pelican-wings:
+      rule: "Host(`wings.mozartcloud.app`)"
+      entryPoints:
+        - websecure
+      service: "pelican-wings-svc"
+      middlewares:
+        - "https-headers"
+      tls:
+        certResolver: letsencrypt
+
+    pelican-wing-aaron:
+      rule: "Host(`aaron.mozartcloud.app`)"
+      entryPoints:
+        - websecure
+      service: "pelican-wing-aaron-svc"
+      middlewares:
+        - "https-headers"
+      tls:
+        certResolver: letsencrypt
+
+    pelican-wing-noah:
+      rule: "Host(`noah.mozartcloud.app`)"
+      entryPoints:
+        - websecure
+      service: "pelican-wing-noah-svc"
+      middlewares:
+        - "https-headers"
+      tls:
+        certResolver: letsencrypt
+
+    pelican-wing-dome:
+      rule: "Host(`dome.mozartcloud.app`)"
+      entryPoints:
+        - websecure
+      service: "pelican-wing-dome-svc"
+      middlewares:
+        - "https-headers"
+      tls:
+        certResolver: letsencrypt
+
+    pelican-wing-nils:
+      rule: "Host(`nils.mozartcloud.app`)"
+      entryPoints:
+        - websecure
+      service: "pelican-wing-nils-svc"
+      middlewares:
+        - "https-headers"
+      tls:
+        certResolver: letsencrypt
+
+    # test.matrix
+    test-matrix:
+      rule: "Host(`test.matrix.mozartcloud.app`)"
+      entryPoints:
+        - websecure
+      service: "test-matrix"
+      middlewares:
+        - "https-headers"
+      tls:
+        certResolver: letsencrypt
+
+    # Navidrome
+    navidrome:
+      rule: "Host(`music.mozartcloud.app`)"
+      entryPoints:
+        - websecure
+      service: "navidrome"
+      middlewares:
+        - "https-headers"
+      tls:
+        certResolver: letsencrypt
+
+    # qBittorrent
+    torrent:
+      rule: "Host(`torrent.mozartcloud.app`)"
+      entryPoints:
+        - websecure
+      service: "torrent"
+      middlewares:
+        - "https-headers"
+      tls:
+        certResolver: letsencrypt
+
+    # Lidarr
+    lidarr:
+      rule: "Host(`lidarr.mozartcloud.app`)"
+      entryPoints:
+        - websecure
+      service: "lidarr"
+      middlewares:
+        - "https-headers"
+      tls:
+        certResolver: letsencrypt
+
+  middlewares:
+    https-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+  services:
+    pve:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.2:8006"
+
+    nextcloud:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.52"
+
+    homeassistant:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.3:8123"
+
+    vaultwarden:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.56:8000"
+
+    authentik-legacy:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.54:9000"
+
+    pelican-panel-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.58:80"
+
+    pelican-wings-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.59:8080"
+
+    pelican-wing-aaron-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.59:8080"
+
+    pelican-wing-noah-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.60:8080"
+
+    pelican-wing-dome-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.61:8080"
+
+    pelican-wing-nils-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.62:8080"
+
+    test-matrix:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.151:8008"
+
+    navidrome:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.80:4533"
+
+    torrent:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.82:8090"
+
+    lidarr:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.81:8686"
