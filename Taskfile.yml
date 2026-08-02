@@ -38,16 +38,25 @@ tasks:
 
   secrets:pubkey:
     desc: Print your age public key
+    preconditions:
+      - sh: test -f {{.AGE_KEY}}
+        msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
     cmds:
       - age-keygen -y {{.AGE_KEY}}
 
   secrets:edit:
     desc: "Edit an encrypted secret in place, e.g. task secrets:edit -- path/to/file.sops.yaml"
+    preconditions:
+      - sh: test -f {{.AGE_KEY}}
+        msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
     cmds:
       - SOPS_AGE_KEY_FILE={{.AGE_KEY}} sops {{.CLI_ARGS}}
 
   secrets:rekey:
     desc: Re-encrypt all *.sops.yaml files
+    preconditions:
+      - sh: test -f {{.AGE_KEY}}
+        msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
     cmds:
       - 'SOPS_AGE_KEY_FILE={{.AGE_KEY}} find . -name "*.sops.yaml" -not -path "./_local/*" -exec sops updatekeys -y {} \;'
 
@@ -55,12 +64,18 @@ tasks:
   firewall:
     desc: "Stage 0 - Update MikroTik firewall rules"
     dir: "{{.ANSIBLE_DIR}}"
+    preconditions:
+      - sh: command -v ansible-playbook >/dev/null 2>&1
+        msg: "Missing ansible-playbook in PATH."
     cmds:
       - ansible-playbook -i inventory.ini mikrotik.yml
 
   infra:
     desc: "Stage 1 - Create LXCs + Talos VMs via Proxmox API"
     dir: "{{.PROXMOX_DIR}}"
+    preconditions:
+      - sh: command -v terraform >/dev/null 2>&1
+        msg: "Missing terraform in PATH. Run: task setup"
     cmds:
       - terraform init -input=false
       - terraform apply -auto-approve
@@ -68,6 +83,9 @@ tasks:
   cluster:
     desc: "Stage 2 - Apply Talos config, bootstrap etcd, write kubeconfig"
     dir: "{{.TALOS_DIR}}"
+    preconditions:
+      - sh: command -v terraform >/dev/null 2>&1
+        msg: "Missing terraform in PATH. Run: task setup"
     cmds:
       - terraform init -input=false
       - terraform apply -auto-approve
@@ -78,18 +96,27 @@ tasks:
   kubeconfig:
     desc: "Extract kubeconfig from terraform"
     dir: "{{.TALOS_DIR}}"
+    preconditions:
+      - sh: command -v terraform >/dev/null 2>&1
+        msg: "Missing terraform in PATH. Run: task setup"
     cmds:
       - terraform output -raw kubeconfig > ../../{{.KUBECONFIG_OUT}}
 
   # ------------------------------------------------------- kubernetes ---
   gitops:
     desc: "Stage 3 - Install Argo CD and apply root app"
+    preconditions:
+      - sh: command -v kubectl >/dev/null 2>&1
+        msg: "Missing kubectl in PATH."
+      - sh: test -f {{.KUBECONFIG_OUT}}
+        msg: "Missing {{.KUBECONFIG_OUT}}. Run: task cluster"
     cmds:
       - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace argocd --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
       - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/{{.ARGOCD_VERSION}}/manifests/install.yaml
       - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
       - |
         if [ -f kubernetes/bootstrap/repo-credentials-secret.sops.yaml ]; then
+          test -f {{.AGE_KEY}} || { echo "Missing {{.AGE_KEY}}. Run: task secrets:init"; exit 1; }
           echo "Applying private-repo credentials"
           SOPS_AGE_KEY_FILE={{.AGE_KEY}} sops --decrypt kubernetes/bootstrap/repo-credentials-secret.sops.yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
         fi
@@ -98,6 +125,15 @@ tasks:
 
   secrets:apply:
     desc: "Stage 4 - Decrypt and apply SOPS secrets to the cluster"
+    preconditions:
+      - sh: command -v kubectl >/dev/null 2>&1
+        msg: "Missing kubectl in PATH."
+      - sh: command -v sops >/dev/null 2>&1
+        msg: "Missing sops in PATH. Run: task setup"
+      - sh: test -f {{.KUBECONFIG_OUT}}
+        msg: "Missing {{.KUBECONFIG_OUT}}. Run: task cluster"
+      - sh: test -f {{.AGE_KEY}}
+        msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
     cmds:
       - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace minio --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
       - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace longhorn-system --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
@@ -105,7 +141,7 @@ tasks:
       - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace pelican --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
       - KUBECONFIG={{.KUBECONFIG_OUT}} kubectl create namespace authentik --dry-run=client -o yaml | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
       - |
-        for f in $(find kubernetes -name "*-secret.sops.yaml"); do
+        find kubernetes -name "*-secret.sops.yaml" -print0 | while IFS= read -r -d '' f; do
           echo "Applying $f"
           SOPS_AGE_KEY_FILE={{.AGE_KEY}} sops --decrypt "$f" | KUBECONFIG={{.KUBECONFIG_OUT}} kubectl apply -f -
         done
@@ -113,7 +149,7 @@ tasks:
   destroy:
     desc: "Tear everything down (talos first, then proxmox)"
     cmds:
-      - terraform -chdir={{.TALOS_DIR}} destroy -auto-approve || true
+      - terraform -chdir={{.TALOS_DIR}} destroy -auto-approve
       - terraform -chdir={{.PROXMOX_DIR}} destroy -auto-approve
 
   all:

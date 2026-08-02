@@ -12,23 +12,23 @@ infrastructure/
 
 ## Order — run from your workstation
 
-The whole stack comes up with one command (see `Makefile`):
+The whole stack comes up with one command (see `../Taskfile.yml`):
 
 ```bash
-cd infrastructure
-make all        # = firewall -> infra -> cluster -> gitops
+task all        # = firewall -> infra -> cluster -> gitops -> secrets
 ```
 
 Or step by step:
 
 ```bash
-make firewall   # 0. open inter-VLAN ports on the UDM Pro (Ansible/UniFi API)
-make infra      # 1. create LXCs + Talos VMs via the Proxmox API (auto-start)
-make cluster    # 2. Talos config + etcd bootstrap; writes kubeconfig/talosconfig
-make gitops     # 3. install Argo CD + apply kubernetes/bootstrap/root-app.yaml
+task firewall   # 0. open inter-VLAN ports on MikroTik
+task infra      # 1. create LXCs + Talos VMs via the Proxmox API (auto-start)
+task cluster    # 2. Talos config + etcd bootstrap; writes kubeconfig/talosconfig
+task gitops     # 3. install Argo CD + apply kubernetes/bootstrap/root-app.yaml
+task secrets:apply  # 4. decrypt and apply SOPS-managed Kubernetes secrets
 ```
 
-After `make gitops`, Argo CD's app-of-apps owns the cluster and syncs
+After `task gitops`, Argo CD's app-of-apps owns the cluster and syncs
 `../kubernetes/platform` and `../kubernetes/apps` automatically.
 
 Run from a machine (your PC) that can reach the Proxmox API (`:8006`), the Talos

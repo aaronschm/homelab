@@ -44,7 +44,7 @@
         minute: "0"
         hour: "3"
         job: "rclone sync /etc/traefik offsite:{{ s3_bucket }}/traefik/ --delete-excluded"
-      when: "'traefik' in group_names"
+      when: "'traefik_lxc' in group_names"
 
     # Forgejo/Gitea backup
     - name: Setup cron job for Forgejo backup
@@ -53,7 +53,7 @@
         minute: "30"
         hour: "3"
         job: "rclone sync /opt/forgejo offsite:{{ s3_bucket }}/forgejo/ --delete-excluded"
-      when: "'forgejo' in group_names"
+      when: "'forgejo_lxc' in group_names"
 
     # AdGuard backup
     - name: Setup cron job for AdGuard backup
@@ -62,4 +62,4 @@
         minute: "0"
         hour: "4"
         job: "rclone sync /opt/AdGuardHome offsite:{{ s3_bucket }}/adguard/ --delete-excluded"
-      when: "'adguard' in group_names"
+      when: "'adguard_lxc' in group_names"

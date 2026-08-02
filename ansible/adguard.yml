@@ -1,6 +1,6 @@
 ---
 - name: Install AdGuard Home DNS
-  hosts: adguard
+  hosts: adguard_lxc
   become: yes
   vars:
     adguard_version: "v0.107.52"

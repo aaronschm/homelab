@@ -36,6 +36,7 @@ See [docs/network-setup.md](docs/network-setup.md) for VLANs and firewall rules.
 
 ```bash
 task setup      # installs terraform, sops, age, talosctl via mise
+ansible-galaxy collection install -r ansible/requirements.yml
 
 # The custom Router Dashboard UI provides WireGuard peer management, Port Forwarding (NAT), and VLAN configuration via your browser.      # installs terraform, sops, age, talosctl via mise
 task all        # firewall (MikroTik) -> infra (Proxmox) -> cluster (Talos) -> gitops (Argo CD) -> secrets
@@ -66,3 +67,5 @@ Per-environment config lives in `infrastructure/terraform/*/terraform.tfvars`
 
 Kubernetes secrets are managed via **SOPS and age** and safely committed as `*.sops.yaml`. 
 To edit a secret, use `task secrets:edit -- path/to/secret.sops.yaml`.
+Argo CD excludes `*.sops.yaml`; decrypted apply is handled explicitly by
+`task secrets:apply`.

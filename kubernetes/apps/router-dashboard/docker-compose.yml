@@ -9,7 +9,7 @@ services:
     environment:
       - ROUTER_IP=10.10.1.2
       - ROUTER_USER=automation
-      - ROUTER_PASS=ChangeMe123!
+      - ROUTER_PASS=CHANGE_ME_SET_STRONG_PASSWORD
       - ROUTER_TYPE=mikrotik
   
   frontend:

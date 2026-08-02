@@ -13,7 +13,7 @@ spec:
     path: kubernetes/apps
     directory:
       recurse: true
-      exclude: "**/*.example.yaml"
+      exclude: "{**/*.example.yaml,**/*.sops.yaml,**/kustomization.yaml}"
   destination:
     server: https://kubernetes.default.svc
     namespace: default

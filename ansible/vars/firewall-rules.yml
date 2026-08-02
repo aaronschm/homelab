@@ -8,8 +8,6 @@ vlans:
   cluster: { id: 25, subnet: "10.10.25.0/24" }
 
 firewall_rules:
-    proto: tcp
-    
   - name: "PC to Proxmox API"
     src_ips: ["10.10.10.0/24"]
     dst_ips: ["10.10.20.0/24"]

@@ -1,6 +1,6 @@
 ---
 - name: Configure Traefik Reverse Proxy in DMZ LXC
-  hosts: traefik
+  hosts: traefik_lxc
   become: yes
   vars:
     traefik_version: "3.0.4"
@@ -50,7 +50,7 @@
           
           api:
             dashboard: true
-            insecure: true
+            insecure: false
           
           log:
             level: INFO
