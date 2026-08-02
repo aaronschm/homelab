@@ -16,6 +16,17 @@ locals {
     }
   }
 
+  # DNS servers for the cluster nodes. VLAN 25 has no internet access; AdGuard
+  # (10.10.20.99) is reachable via the "Cluster to Server" firewall rule and
+  # provides ad-blocking resolution + upstream forwarding via the router.
+  dns_patch = {
+    machine = {
+      network = {
+        nameservers = [var.dns_server]
+      }
+    }
+  }
+
   # Registry mirror so the dark Cluster VLAN (no internet) can still pull
   # container images via the Registry LXC on the Management VLAN.
   registry_patch = var.registry_mirror_endpoint == "" ? {} : {
@@ -123,6 +134,7 @@ data "talos_machine_configuration" "controlplane" {
   config_patches = compact([
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
     yamlencode(local.time_patch),
+    yamlencode(local.dns_patch),
     yamlencode(local.cilium_patch),
     local.use_vip ? yamlencode(local.vip_patch) : "",
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
@@ -140,6 +152,7 @@ data "talos_machine_configuration" "worker" {
   config_patches = compact([
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
     yamlencode(local.time_patch),
+    yamlencode(local.dns_patch),
     yamlencode(local.cilium_patch),
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
     (length(var.worker_data_disks) + length(var.minio_extra_disks)) > 0 ? yamlencode(local.worker_disks_patch) : "",

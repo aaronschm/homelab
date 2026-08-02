@@ -78,6 +78,12 @@ variable "ntp_server" {
   default = "10.10.20.2"
 }
 
+variable "dns_server" {
+  type        = string
+  default     = "10.10.20.99"
+  description = "DNS server for cluster nodes. AdGuard (10.10.20.99) is reachable via the Cluster→Server firewall rule."
+}
+
 # Raw-passthrough drives for the MinIO gamma pool. These are attached to the
 # Proxmox host via disk-by-id passthrough (qm set VMID --scsiN /dev/disk/by-id/…)
 # and appear as sequential scsi devices in the VM after the worker_data_disks.
