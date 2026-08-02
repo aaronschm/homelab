@@ -9,3 +9,4 @@ resources:
   - authentik-server.yaml
   - authentik-worker.yaml
   - authentik-service.yaml
+  - redis.yaml

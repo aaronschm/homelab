@@ -1,0 +1,17 @@
+http:
+  routers:
+    k8s-http:
+      # Catch anything for your domain that isn't handled by LXC (like Forgejo)
+      rule: "HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.aaronschmidt.de`, `{subdomain:[a-zA-Z0-9-]+}.isarcloud.eu`)"
+      service: "k8s-ingress-http"
+      entryPoints: ["websecure"]
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    k8s-ingress-http:
+      loadBalancer:
+        servers:
+          # Pointing to the NodePort defined in kubernetes/bootstrap/apps/traefik.yaml
+          # Assuming 10.10.25.101 is your Talos worker node IP
+          - url: "http://10.10.25.101:32080"
