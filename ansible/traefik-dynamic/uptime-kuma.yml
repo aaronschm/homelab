@@ -1,0 +1,13 @@
+http:
+  routers:
+    uptime-kuma:
+      rule: "Host(`status.isarcloud.eu`)"
+      service: "uptime-kuma-svc"
+      entryPoints: ["websecure"]
+      tls:
+        certResolver: letsencrypt
+  services:
+    uptime-kuma-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.102:3001"

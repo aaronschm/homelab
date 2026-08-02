@@ -1,7 +1,7 @@
 http:
   routers:
     forgejo:
-      rule: "Host(`forgejo.isarcloud.local`)"
+      rule: "Host(`git.isarcloud.eu`)"
       service: "forgejo-svc"
       entryPoints: ["websecure"]
       tls:
