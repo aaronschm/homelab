@@ -1,16 +1,11 @@
 locals {
-  vlan_tag = {
-    mgmt    = 20
-    dmz     = 24
-    cluster = 25
-  }
-
-  # When the bridge is NOT VLAN-aware, emit null (untagged). Enable tagging only
-  # after making vmbr0 VLAN-aware and trunking the VLANs on the UDM uplink.
-  vlan_id = var.enable_vlan_tagging ? local.vlan_tag : {
-    mgmt    = null
-    dmz     = null
-    cluster = null
+  # mgmt (VLAN 20) is the native PVID on the MikroTik trunk port — guests on VLAN 20
+  # must always be UNTAGGED. The switch classifies untagged frames into VLAN 20 itself.
+  # dmz (24) and cluster (25) are non-native and require explicit VLAN tags.
+  vlan_id = {
+    mgmt    = null  # native PVID — never tagged regardless of enable_vlan_tagging
+    dmz     = var.enable_vlan_tagging ? 24 : null
+    cluster = var.enable_vlan_tagging ? 25 : null
   }
 }
 

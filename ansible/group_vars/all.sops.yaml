@@ -1,0 +1,20 @@
+# Copy to ansible/group_vars/all.sops.yaml, fill in real values, then run:
+#   SOPS_AGE_KEY_FILE=_local/age.key sops --encrypt --in-place ansible/group_vars/all.sops.yaml
+#
+# The community.sops vars plugin (enabled in ansible.cfg) will decrypt this
+# automatically at playbook runtime when SOPS_AGE_KEY_FILE is set.
+
+# --- MikroTik management credentials ---
+# Password for the admin user Ansible uses to connect to MikroTik devices.
+# This is the account you log in with normally (not the network-dashboard user).
+# Keep separate from MIKROTIK_AUTOMATION_PASSWORD and MIKROTIK_DASHBOARD_PASSWORD
+# which are managed user accounts created by the playbook.
+mikrotik_password: "CHANGE_ME"
+
+# --- Offsite S3 Backup (friend's MinIO server) ---
+# Used by ansible/lxc-backup.yml for LXC snapshots.
+# Create an AVV (Auftragsverarbeitungsvertrag) with the server owner!
+s3_endpoint: "https://s3.your-offsite.example.com"
+s3_access_key: "CHANGE_ME"
+s3_secret_key: "CHANGE_ME"
+s3_bucket: "homelab-lxc-backups"

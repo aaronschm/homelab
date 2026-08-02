@@ -48,37 +48,28 @@ workers = {
   "25101" = { vmid = 25101, ip = "10.10.25.101/24", cores = 6, memory = 32768, disk_gb = 100 }
 }
 
-# Worker data disks (attached scsi1, scsi2, ... in this order).
-#   - Longhorn lives on the beta SSD, mounted at /var/mnt/longhorn.
-#   - The alpha pool (4TB raidz1) was previously used for interim MinIO storage.
-#     With the 6x18TB gamma drives now available via raw passthrough, the alpha
-#     disk in worker_data_disks is no longer needed and can be removed.
-#     Once all data is migrated from the alpha MinIO to the gamma MinIO,
-#     delete the second entry and redeploy.
-#   Keep this list IDENTICAL in the talos module.
+# Worker data disks (attached scsi1, ... in this order). Keep IDENTICAL in the talos module.
+#   scsi1 -> /dev/sdb -> /var/mnt/longhorn (Longhorn, on beta SSD 400 GB)
+# Alpha disk is decommissioned — drives are now passed through raw to MinIO.
 worker_data_disks = [
   { storage = "beta", size_gb = 400, mountpoint = "/var/mnt/longhorn" },
-  # Remove the line below once all data has migrated from alpha to gamma MinIO:
-  # { storage = "alpha", size_gb = 1000, mountpoint = "/var/mnt/alpha" },
 ]
 
 
 # The 6×18TB MinIO drives are passed through raw to the worker VM.
-# Run these on the Proxmox host once after 'task infra' creates the worker VM,
-# replacing <WORKER_VMID> with the actual vmid (e.g. 25101):
+# The bpg/proxmox provider cannot attach raw block devices — this must be done
+# MANUALLY on the Proxmox host after 'task infra' creates the worker VM (vmid 25101).
 #
-#   qm set <WORKER_VMID> --scsi2 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53YXLW
-#   qm set <WORKER_VMID> --scsi3 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53YLH2
-#   qm set <WORKER_VMID> --scsi4 /dev/disk/by-id/ata-ST18000NM000J-2TV103_WR500CTT
-#   qm set <WORKER_VMID> --scsi5 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR52XVD4
-#   qm set <WORKER_VMID> --scsi6 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53Z09J
-#   qm set <WORKER_VMID> --scsi7 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR51SPP6
+# Run once on the Proxmox host:
+#   qm set 25101 --scsi2 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53YXLW
+#   qm set 25101 --scsi3 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53YLH2
+#   qm set 25101 --scsi4 /dev/disk/by-id/ata-ST18000NM000J-2TV103_WR500CTT
+#   qm set 25101 --scsi5 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR52XVD4
+#   qm set 25101 --scsi6 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53Z09J
+#   qm set 25101 --scsi7 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR51SPP6
 #
-# Verify on the Proxmox host:
-#   ls -la /dev/disk/by-id/ | grep ST18000
-#
-# After attaching the drives, run 'task cluster' — Talos will see them as
-# /dev/sdc through /dev/sdh inside the worker VM (scsi1 = Longhorn = /dev/sdb).
+# Then run 'task cluster'. Inside the VM the drives appear as /dev/sdc-/dev/sdh
+# (scsi1=Longhorn=/dev/sdb, scsi2=first MinIO drive=/dev/sdc, etc.)
 minio_disks_by_id = [
   "/dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53YXLW",
   "/dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53YLH2",

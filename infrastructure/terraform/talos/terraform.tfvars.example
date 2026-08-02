@@ -7,10 +7,9 @@ kubernetes_version = "v1.34.1"
 talos_version      = "v1.13.4"
 install_disk       = "/dev/sda"
 
-# Worker data disks (scsi1, ...) created by the proxmox module.
-# Talos formats + mounts each at .mountpoint inside the worker VM.
-#   scsi1 -> /dev/sdb -> /var/mnt/longhorn   (Longhorn PVCs, on beta SSD 400 GB)
-# Keep IDENTICAL to the proxmox module's worker_data_disks.
+# Worker data disks (scsi1, ...) — only Longhorn on the beta SSD.
+# Alpha disk is decommissioned. Keep IDENTICAL to proxmox module's worker_data_disks.
+#   scsi1 -> /dev/sdb -> /var/mnt/longhorn (Longhorn, on beta SSD 400 GB)
 worker_data_disks = [
   { storage = "beta", size_gb = 400, mountpoint = "/var/mnt/longhorn" },
 ]
