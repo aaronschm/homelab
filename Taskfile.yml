@@ -2,6 +2,11 @@ version: "3"
 
 silent: true
 
+# Prepend mise shims so pinned tool versions in .mise.toml always win
+# over any system-installed binaries (e.g. /usr/local/bin/terraform).
+env:
+  PATH: "{{.HOME}}/.local/share/mise/shims:{{.PATH}}"
+
 vars:
   PROXMOX_DIR: infrastructure/terraform/proxmox
   TALOS_DIR: infrastructure/terraform/talos
