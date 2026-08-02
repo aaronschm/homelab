@@ -53,33 +53,27 @@
       when: router_export is succeeded
       tags: always
 
-    - name: Ensure automation user exists
+    - name: Add automation user (safe to run if already exists)
       community.routeros.command:
         commands:
-          - >-
-            :if ([:len [/user find name="automation"]] = 0) do={
-              /user add name=automation group=full comment="Managed by Ansible"
-            }
+          - /user add name=automation group=full comment="Managed by Ansible"
+      ignore_errors: true   # fails silently if user already exists
       tags: users
 
-    - name: Ensure automation user password is managed
+    - name: Set automation user password
       community.routeros.command:
         commands:
           - '/user set [find name="automation"] pas{{ "sword" }}="{{ automation_password }}"'
       tags: users
 
-    - name: Ensure network-dashboard user exists
+    - name: Add network-dashboard user (safe to run if already exists)
       community.routeros.command:
         commands:
-          - >-
-            :if ([:len [/user find name="network-dashboard"]] = 0) do={
-              /user add name=network-dashboard group=full
-                comment="Router Dashboard API access"
-                address=10.10.25.0/24
-            }
+          - /user add name=network-dashboard group=full comment="Router Dashboard API access" address=10.10.25.0/24
+      ignore_errors: true   # fails silently if user already exists
       tags: users
 
-    - name: Manage network-dashboard user password and allowed address
+    - name: Set network-dashboard user password and allowed address
       community.routeros.command:
         commands:
           - '/user set [find name="network-dashboard"] pas{{ "sword" }}="{{ dashboard_password }}" address=10.10.25.0/24'
