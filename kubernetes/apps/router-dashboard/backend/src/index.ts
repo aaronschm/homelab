@@ -65,7 +65,7 @@ app.post('/api/wireguard/peer', async (req, res) => {
     try {
         // Fetch interface info to get server pubkey and port
         const ifaces = await runApiCommand('/interface/wireguard/print');
-        const serverIface = ifaces.find((i: any) => i.name === interfaceName);
+        const serverIface: any = ifaces.find((i: any) => i.name === interfaceName);
         if (!serverIface) throw new Error("Interface not found");
 
         const serverPubKey = serverIface['public-key'];
