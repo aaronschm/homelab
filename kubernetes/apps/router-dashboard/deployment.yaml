@@ -17,12 +17,11 @@ spec:
         - name: backend
           image: ghcr.io/aaronschm/router-dashboard-backend:latest
           imagePullPolicy: Always
-          env:
-            - name: ALLOWED_ORIGIN
-              value: "https://router.isarcloud.eu"
           ports:
             - containerPort: 4000
           env:
+            - name: ALLOWED_ORIGIN
+              value: "https://network.isarcloud.eu"
             - name: DATA_DIR
               value: /app/data
           envFrom:

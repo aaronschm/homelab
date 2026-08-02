@@ -1,12 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Network, Shield, Users, RadioTower } from 'lucide-react';
 import WireGuardView from './views/WireGuardView';
 import InterfacesView from './views/InterfacesView';
 import ClientsView from './views/ClientsView';
 import FirewallView from './views/FirewallView';
 
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+interface RouterInfo { id: string; label: string; ip: string; }
+
 function App() {
   const [activeTab, setActiveTab] = useState('wireguard');
+  const [routers, setRouters] = useState<RouterInfo[]>([]);
+  const [activeRouter, setActiveRouter] = useState('primary');
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/routers`)
+      .then(r => r.json())
+      .then((data: RouterInfo[]) => { setRouters(data); })
+      .catch(() => setRouters([{ id: 'primary', label: 'Router', ip: '' }]));
+  }, []);
 
   const tabs = [
     { id: 'wireguard', name: 'WireGuard', icon: <Shield size={18} /> },
@@ -26,6 +39,20 @@ function App() {
           <span className="text-xl font-bold tracking-tight text-white">Isar<span className="text-isar">Cloud</span></span>
         </div>
         
+        {/* Router selector — only shown when multiple routers are configured */}
+        {routers.length > 1 && (
+          <div className="px-4 mb-2">
+            <label className="block text-xs text-slate-500 mb-1 uppercase tracking-wide">Device</label>
+            <select
+              value={activeRouter}
+              onChange={e => setActiveRouter(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-white outline-none focus:border-isar"
+            >
+              {routers.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+            </select>
+          </div>
+        )}
+
         <nav className="flex-1 px-4 space-y-2 mt-4">
           {tabs.map(tab => (
             <button
@@ -53,10 +80,10 @@ function App() {
         </header>
         
         <div className="p-8 max-w-6xl mx-auto">
-          {activeTab === 'wireguard' && <WireGuardView />}
-          {activeTab === 'interfaces' && <InterfacesView />}
-          {activeTab === 'clients' && <ClientsView />}
-          {activeTab === 'firewall' && <FirewallView />}
+          {activeTab === 'wireguard' && <WireGuardView router={activeRouter} />}
+          {activeTab === 'interfaces' && <InterfacesView router={activeRouter} />}
+          {activeTab === 'clients' && <ClientsView router={activeRouter} />}
+          {activeTab === 'firewall' && <FirewallView router={activeRouter} />}
         </div>
       </main>
     </div>

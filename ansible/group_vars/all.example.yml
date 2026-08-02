@@ -1,20 +1,8 @@
-# Copy to ansible/group_vars/all.yml and fill in. all.yml is git-ignored.
-# Best practice: ansible-vault encrypt this file, or pass the password at runtime
-#   ansible-playbook ... -e "udm_password=$UDM_PASSWORD"
+# Copy to ansible/group_vars/all.yml and fill in.
+# Better: use SOPS — see all.sops.example.yaml for the encrypted workflow.
 
-udm_host: "https://10.10.20.1"     # UDM Pro IP on the mgmt VLAN
-udm_site: "default"
-
-# Local UniFi admin account (NOT your Ubiquiti SSO cloud login). Create a
-# local-only admin in the UI: Settings -> Admins & Users -> Add Admin ->
-# "Restrict to local access only". See ansible/README.md.
-udm_username: "ansible"
-udm_password: "CHANGE_ME"
-
-udm_verify_ssl: false              # UDM uses a self-signed cert by default
-
-# Offsite S3 Backup Credentials for LXCs
-s3_endpoint: "https://s3.your-offsite.com"
+# --- Offsite S3 Backup (friend's MinIO server) ---
+s3_endpoint: "https://s3.your-offsite.example.com"
 s3_access_key: "your-access-key"
 s3_secret_key: "your-secret-key"
 s3_bucket: "homelab-lxc-backups"

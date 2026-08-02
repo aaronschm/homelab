@@ -3,14 +3,11 @@
 #
 # The community.sops vars plugin (enabled in ansible.cfg) will decrypt this
 # automatically at playbook runtime when SOPS_AGE_KEY_FILE is set.
-#
-# Fields matching the *.sops.yaml encrypted_regex in .sops.yaml are encrypted;
-# the plaintext keys remain visible so Ansible can reference them normally.
 
-# --- UniFi Dream Machine ---
-udm_host: "https://10.10.20.1"     # UDM Pro IP on the mgmt VLAN
-udm_site: "default"
-udm_username: "homelab"
-udm_password: "CHANGE_ME"          # local admin only, NOT Ubiquiti SSO
-
-udm_verify_ssl: false              # UDM uses a self-signed cert by default
+# --- Offsite S3 Backup (friend's MinIO server) ---
+# Used by ansible/lxc-backup.yml for LXC snapshots.
+# Create an AVV (Auftragsverarbeitungsvertrag) with the server owner!
+s3_endpoint: "https://s3.your-offsite.example.com"
+s3_access_key: "CHANGE_ME"
+s3_secret_key: "CHANGE_ME"
+s3_bucket: "homelab-lxc-backups"

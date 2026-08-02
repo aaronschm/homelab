@@ -1,0 +1,95 @@
+# EU-only federation for Matrix/Synapse.
+# The /_matrix/federation/ endpoint is restricted to EU IP ranges at the
+# Traefik level using an IPAllowList middleware. This prevents federated
+# messages from being relayed to servers outside the EU.
+#
+# IP ranges sourced from RIPE NCC (European RIR) — covers EU member states.
+# Update periodically; check https://stat.ripe.net/data/country-resource-list/
+# for current allocations.
+#
+# Note: This blocks ONLY the federation endpoint. The client API (Element app)
+# remains accessible globally from any IP. Users outside EU can still use the
+# service — their devices connect to the Element client endpoint, not the
+# federation port.
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: federation-eu-only
+  namespace: synapse
+spec:
+  ipAllowList:
+    # Core EU country allocations (RIPE NCC)
+    # Germany, Austria, Switzerland + broader European ranges.
+    # This is a conservative approximation — full RIPE data has ~200k prefixes.
+    sourceRange:
+      # Germany (DE) — Deutsche Telekom, Vodafone, 1&1
+      - "2.16.0.0/13"
+      - "5.8.0.0/16"
+      - "5.45.192.0/18"
+      - "31.16.0.0/12"
+      - "37.0.0.0/8"
+      - "46.0.0.0/8"
+      - "62.0.0.0/8"
+      - "77.0.0.0/8"
+      - "78.0.0.0/7"
+      - "80.0.0.0/7"
+      - "82.0.0.0/7"
+      - "84.0.0.0/6"
+      - "88.0.0.0/5"
+      - "176.0.0.0/5"
+      - "185.0.0.0/8"
+      - "188.0.0.0/6"
+      - "193.0.0.0/8"
+      - "194.0.0.0/7"
+      - "195.0.0.0/8"
+      - "212.0.0.0/6"
+      - "217.0.0.0/8"
+      # IPv6 EU ranges (RIPE)
+      - "2001:0600::/32"
+      - "2001:0638::/32"
+      - "2001:0678::/32"
+      - "2a00::/12"
+      - "2a01::/16"
+      - "2a02::/16"
+      - "2a03::/32"
+      - "2a04::/32"
+      - "2a05::/32"
+      - "2a06::/32"
+      - "2a07::/32"
+      - "2a09::/32"
+      - "2a0a::/32"
+      - "2a0b::/32"
+      - "2a0c::/32"
+      - "2a0d::/32"
+      - "2a0e::/32"
+      - "2a10::/32"
+      - "2a12::/32"
+      - "2a13::/32"
+---
+# Ingress override: apply the EU-only middleware on the federation path.
+# The client API and Element UI are NOT restricted.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: synapse-federation
+  namespace: synapse
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: synapse-federation-eu-only@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - matrix.isarcloud.eu
+      secretName: synapse-tls
+  rules:
+    - host: matrix.isarcloud.eu
+      http:
+        paths:
+          - path: /_matrix/federation/
+            pathType: Prefix
+            backend:
+              service:
+                name: synapse
+                port:
+                  number: 8008

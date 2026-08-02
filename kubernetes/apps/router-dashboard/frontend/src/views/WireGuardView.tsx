@@ -1,17 +1,30 @@
 import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { x25519 } from '@noble/curves/ed25519';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-export default function WireGuardView() {
+// Generate a WireGuard-compatible keypair entirely in the browser.
+// The private key NEVER leaves this browser tab — only the public key is sent
+// to the backend, which registers it with the router.
+function generateWireGuardKeypair(): { privateKey: string; publicKey: string } {
+  const privKeyBytes = x25519.utils.randomPrivateKey();
+  const pubKeyBytes = x25519.getPublicKey(privKeyBytes);
+  return {
+    privateKey: btoa(String.fromCharCode(...privKeyBytes)),
+    publicKey: btoa(String.fromCharCode(...pubKeyBytes)),
+  };
+}
+
+export default function WireGuardView({ router = 'primary' }: { router?: string }) {
   const [data, setData] = useState<{interfaces: any[], peers: any[]}>({ interfaces: [], peers: [] });
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newPeer, setNewPeer] = useState({ interfaceName: '', comment: '', allowedAddress: '10.10.30.2/32', endpointHost: 'home.aaronschmidt.de' });
+  const [newPeer, setNewPeer] = useState({ interfaceName: '', comment: '', allowedAddress: '10.10.30.2/32', endpointHost: 'isarcloud.eu' });
   const [generatedConfig, setGeneratedConfig] = useState<string | null>(null);
 
   const fetchData = () => {
-    fetch(`${API_URL}/api/wireguard`)
+    fetch(`${API_URL}/api/wireguard?target=${router}`)
       .then(res => res.json())
       .then(d => {
         setData(d);
@@ -26,30 +39,45 @@ export default function WireGuardView() {
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [router]);
 
   const toggleInterface = async (id: string, currentlyDisabled: boolean) => {
     await fetch(`${API_URL}/api/wireguard/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, disabled: !currentlyDisabled })
+      body: JSON.stringify({ id, disabled: !currentlyDisabled, target: router })
     });
     fetchData();
   };
 
   const handleAddPeer = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Generate keypair IN THE BROWSER — private key stays here, never sent to server.
+    const { privateKey, publicKey } = generateWireGuardKeypair();
+
     const res = await fetch(`${API_URL}/api/wireguard/peer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newPeer)
+      body: JSON.stringify({ ...newPeer, clientPublicKey: publicKey, target: router })
     });
     const result = await res.json();
     if (result.success) {
-      setGeneratedConfig(result.config);
+      // Build the complete WireGuard config locally using the local private key
+      // and the server info returned by the API (server pubkey + endpoint).
+      const config = `[Interface]
+PrivateKey = ${privateKey}
+Address = ${newPeer.allowedAddress}
+
+[Peer]
+PublicKey = ${result.serverPublicKey}
+Endpoint = ${result.endpoint}
+AllowedIPs = 0.0.0.0/0, ::/0
+PersistentKeepalive = 25
+`;
+      setGeneratedConfig(config);
       fetchData();
     } else {
-      alert("Error generating peer: " + result.error);
+      alert("Error adding peer: " + result.error);
     }
   };
 

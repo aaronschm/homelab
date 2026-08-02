@@ -8,6 +8,7 @@
     ansible_user: "{{ mikrotik_user | default('admin') }}"
     ansible_password: "{{ mikrotik_password | default('') }}"
     automation_password: "{{ lookup('env', 'MIKROTIK_AUTOMATION_PASSWORD') | default('', true) }}"
+    dashboard_password: "{{ lookup('env', 'MIKROTIK_DASHBOARD_PASSWORD') | default('', true) }}"
 
   vars_files:
     - vars/firewall-rules.yml
@@ -18,9 +19,10 @@
         that:
           - ansible_password | length > 0
           - automation_password | length >= 16
+          - dashboard_password | length >= 16
         fail_msg: >-
-          Set MIKROTIK_AUTOMATION_PASSWORD (min 16 chars) and mikrotik_password
-          before running this playbook.
+          Set MIKROTIK_AUTOMATION_PASSWORD and MIKROTIK_DASHBOARD_PASSWORD
+          (both min 16 chars) and mikrotik_password before running this playbook.
 
     - name: Ensure automation user exists
       community.routeros.command:
@@ -35,6 +37,23 @@
       community.routeros.command:
         commands:
           - '/user set [find name="automation"] pas{{ "sword" }}="{{ automation_password }}"'
+      tags: users
+
+    - name: Ensure network-dashboard user exists
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/user find name="network-dashboard"]] = 0) do={
+              /user add name=network-dashboard group=full
+                comment="Router Dashboard API access"
+                address=10.10.25.0/24
+            }
+      tags: users
+
+    - name: Manage network-dashboard user password and allowed address
+      community.routeros.command:
+        commands:
+          - '/user set [find name="network-dashboard"] pas{{ "sword" }}="{{ dashboard_password }}" address=10.10.25.0/24'
       tags: users
 
     - name: Restrict IP Services (SSH, Winbox, WWW, API)

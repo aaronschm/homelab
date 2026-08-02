@@ -1,0 +1,57 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://helm.cilium.io/
+    chart: cilium
+    targetRevision: "1.17.3"
+    helm:
+      valuesObject:
+        # Replace kube-proxy entirely with eBPF — required when Talos sets
+        # cluster.proxy.disabled = true.
+        kubeProxyReplacement: true
+
+        # WireGuard transparent encryption for all pod-to-pod traffic.
+        # Once enabled this is permanent and self-renewing — NOT a temporary measure.
+        # On Talos, the WireGuard kernel module is pre-loaded so no extra steps needed.
+        encryption:
+          enabled: true
+          type: wireguard
+          # node-to-node encryption: even traffic between pods on the same node
+          # but via the network stack is encrypted. Keep false on single-node.
+          nodeEncryption: false
+
+        # Required on Talos — Cilium needs to mount BPF maps.
+        cni:
+          exclusive: false
+
+        # Point Cilium at the correct Kubernetes API endpoint (Talos).
+        k8sServiceHost: "localhost"
+        k8sServicePort: "7445"
+
+        # Enable Hubble for observability (pod network flow monitoring).
+        hubble:
+          enabled: true
+          relay:
+            enabled: true
+          ui:
+            enabled: true
+            ingress:
+              enabled: false  # Expose via Argo CD app separately if needed
+
+        # Strict NetworkPolicy mode — deny by default when a policy exists.
+        policyEnforcementMode: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+---
+# Grafana Alloy — collects logs from all pods and:
+#  1. Anonymizes IP addresses (one-way SHA-256 hash, salt per restart)
+#  2. Drops User-Agent strings
+#  3. Forwards anonymized logs to Grafana for metric-only analysis
+#
+# Metrics (CPU, memory, HTTP status/latency) are NOT anonymized since they
+# contain no PII. Only log lines are processed through the pipeline.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: monitoring
+data:
+  config.alloy: |
+    // ── Log collection from all pods ──────────────────────────────────────────
+    loki.source.kubernetes "pods" {
+      targets    = discovery.kubernetes.pods.targets
+      forward_to = [loki.process.anonymize.receiver]
+    }
+
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    // ── Anonymization pipeline ─────────────────────────────────────────────────
+    loki.process "anonymize" {
+      // Hash IPv4 addresses (catches X-Forwarded-For, client_ip, RemoteAddr etc.)
+      stage.replace {
+        expression = "(?P<ip>\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b)"
+        replace     = "ip-{{ sha256 .ip | trunc 12 }}"
+      }
+      // Hash IPv6 addresses
+      stage.replace {
+        expression = "(?P<ip6>\\b([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}\\b)"
+        replace     = "ip6-{{ sha256 .ip6 | trunc 12 }}"
+      }
+      // Drop User-Agent log fields (contain device fingerprints)
+      stage.replace {
+        expression = "\"(User-Agent|user_agent|ua)\"\\s*:\\s*\"[^\"]*\""
+        replace     = "\"user_agent\":\"[removed]\""
+      }
+      // Drop Synapse/Matrix access_token from logs if accidentally printed
+      stage.replace {
+        expression = "(access_token=|token=)[A-Za-z0-9_\\-\\.]{20,}"
+        replace     = "token=[removed]"
+      }
+
+      forward_to = [loki.write.grafana.receiver]
+    }
+
+    // ── Send to Loki (embedded in Grafana or a sidecar) ───────────────────────
+    loki.write "grafana" {
+      endpoint {
+        url = "http://grafana.grafana.svc:3100/loki/api/v1/push"
+      }
+    }
+
+    // ── Prometheus metrics scraping (no anonymization needed — no PII) ─────────
+    prometheus.scrape "kubernetes" {
+      targets    = discovery.kubernetes.pods.targets
+      forward_to = [prometheus.remote_write.grafana.receiver]
+    }
+
+    prometheus.remote_write "grafana" {
+      endpoint {
+        url = "http://grafana.grafana.svc:9090/api/v1/write"
+      }
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alloy
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: alloy
+  template:
+    metadata:
+      labels:
+        app: alloy
+    spec:
+      serviceAccountName: alloy
+      containers:
+        - name: alloy
+          image: grafana/alloy:v1.4.0
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --storage.path=/var/lib/alloy/data
+          ports:
+            - name: http-metrics
+              containerPort: 12345
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/alloy/data
+      volumes:
+        - name: config
+          configMap:
+            name: alloy-config
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
+        - name: data
+          emptyDir: {}
+      tolerations:
+        - operator: Exists
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alloy
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alloy
+rules:
+  - apiGroups: [""]
+    resources: [nodes, nodes/proxy, services, endpoints, pods]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list, watch]
+  - nonResourceURLs: [/metrics]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alloy
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alloy
+subjects:
+  - kind: ServiceAccount
+    name: alloy
+    namespace: monitoring

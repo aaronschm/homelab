@@ -9,10 +9,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - router.isarcloud.eu
-      secretName: router-dashboard-tls
+        - network.isarcloud.eu
+      secretName: network-dashboard-tls
   rules:
-    - host: router.isarcloud.eu
+    - host: network.isarcloud.eu
       http:
         paths:
           - path: /
@@ -22,6 +22,6 @@ spec:
                 name: router-dashboard
                 port:
                   number: 80
-          # /api is handled by nginx inside the Pod (proxied to localhost:4000).
-          # Port 4000 is NOT exposed here — all external traffic goes through
-          # port 80 and therefore through Authentik forward-auth.
+          # /api is proxied by nginx inside the Pod to localhost:4000.
+          # Port 4000 is NOT exposed here — all traffic goes through port 80
+          # and therefore through Authentik forward-auth.

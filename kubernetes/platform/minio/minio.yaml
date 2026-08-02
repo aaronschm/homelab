@@ -53,6 +53,15 @@ spec:
           envFrom:
             - secretRef:
                 name: minio-root
+          env:
+            # EC:2 parity — 4 data + 2 parity across 6 drives.
+            # Gives ~72 TB usable from 108 TB raw and survives any 2 simultaneous
+            # drive failures. Works well here because data is also backed up
+            # off-site to the friend's MinIO server.
+            - name: MINIO_STORAGE_CLASS_STANDARD
+              value: "EC:2"
+            - name: MINIO_STORAGE_CLASS_RRS
+              value: "EC:1"
           ports:
             - name: api
               containerPort: 9000

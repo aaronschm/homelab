@@ -93,6 +93,17 @@ locals {
       }
     }
   }
+  # Cilium is installed as a Helm chart (see kubernetes/platform/cilium/).
+  # Talos must be told NOT to install the default Flannel CNI so we get a clean
+  # slate. This also disables kube-proxy (Cilium replaces it in eBPF mode).
+  cilium_patch = {
+    cluster = {
+      network = {
+        cni = { name = "none" }
+      }
+      proxy = { disabled = true }
+    }
+  }
 }
 
 # Generates and stores the cluster PKI / secrets in Terraform state.
@@ -112,6 +123,7 @@ data "talos_machine_configuration" "controlplane" {
   config_patches = compact([
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
     yamlencode(local.time_patch),
+    yamlencode(local.cilium_patch),
     local.use_vip ? yamlencode(local.vip_patch) : "",
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
   ])
@@ -128,6 +140,7 @@ data "talos_machine_configuration" "worker" {
   config_patches = compact([
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
     yamlencode(local.time_patch),
+    yamlencode(local.cilium_patch),
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
     (length(var.worker_data_disks) + length(var.minio_extra_disks)) > 0 ? yamlencode(local.worker_disks_patch) : "",
     (length(var.worker_data_disks) + length(var.minio_extra_disks)) > 0 ? yamlencode(local.kubelet_mounts_patch) : "",

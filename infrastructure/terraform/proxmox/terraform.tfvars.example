@@ -47,21 +47,32 @@ workers = {
 }
 
 # Worker data disks (attached scsi1, scsi2, ... in this order).
-#   - Longhorn lives on the beta SSD, mounted at /var/mnt/longhorn (default
-#     StorageClass; replica count 1 on the single worker).
-#   - MinIO uses the interim 'alpha' pool (1000 GB for now) mounted at
-#     /var/mnt/alpha via local-path. When the 6x18TB gamma drives are installed,
-#     swap MinIO's backing store (raw passthrough) -- pods only see the S3
-#     endpoint, so no app changes. Keep this list IDENTICAL in the talos module.
+#   - Longhorn lives on the beta SSD, mounted at /var/mnt/longhorn.
+#   - The alpha pool (4TB raidz1) was previously used for interim MinIO storage.
+#     With the 6x18TB gamma drives now available via raw passthrough, the alpha
+#     disk in worker_data_disks is no longer needed and can be removed.
+#     Once all data is migrated from the alpha MinIO to the gamma MinIO,
+#     delete the second entry and redeploy.
+#   Keep this list IDENTICAL in the talos module.
 worker_data_disks = [
   { storage = "beta", size_gb = 400, mountpoint = "/var/mnt/longhorn" },
-  { storage = "alpha", size_gb = 1000, mountpoint = "/var/mnt/alpha" },
+  # Remove the line below once all data has migrated from alpha to gamma MinIO:
+  # { storage = "alpha", size_gb = 1000, mountpoint = "/var/mnt/alpha" },
 ]
 
-# The 6x18TB MinIO drives are NOT installed yet. When they are, prefer RAW disk
-# passthrough to the worker VM (qm set 25101 -scsiN /dev/disk/by-id/...) over
-# wrapping each in a Proxmox 'gamma' storage pool -- avoids ZFS-on-ZFS overhead
-# and lets MinIO do its own erasure coding. See docs/proxmox-iac.md.
+# ── Home Assistant VM ─────────────────────────────────────────────────────────
+# Home Assistant was previously on the alpha ZFS pool (4TB HDD).
+# Move it to beta (1TB SSD) for better responsiveness and to free alpha for
+# decommission. Run on the Proxmox host:
+#
+#   qm move-disk <VMID> ide0 beta --format qcow2 --delete
+#
+# After the disk moves, update the VM config in Proxmox (or Terraform if
+# you track the HA VM in a separate .tf file) to reflect the new storage pool.
+# HA uses very little disk (<32 GB), so it fits comfortably on beta.
+
+# The 6x18TB MinIO drives are passed through raw to the worker VM.
+# See docs/proxmox-iac.md for the qm set commands to attach them.
 minio_disks_by_id = []
 
 lxcs = {

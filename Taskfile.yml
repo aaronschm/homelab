@@ -84,7 +84,7 @@ tasks:
       - sh: test -f ../{{.AGE_KEY}}
         msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
     cmds:
-      - SOPS_AGE_KEY_FILE=../{{.AGE_KEY}} ansible-playbook -i inventory.ini mikrotik.yml
+      - SOPS_AGE_KEY_FILE=../{{.AGE_KEY}} MIKROTIK_DASHBOARD_PASSWORD="$MIKROTIK_DASHBOARD_PASSWORD" ansible-playbook -i inventory.ini mikrotik.yml
 
   infra:
     desc: "Stage 1 - Create LXCs + Talos VMs via Proxmox API"
