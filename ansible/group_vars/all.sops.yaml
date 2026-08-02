@@ -1,4 +1,4 @@
-mikrotik_password: ENC[AES256_GCM,data:vjKS5VBzIjGHRm23GGOuhPTiojkjk7lOm0psY+IuysU=,iv:pFXJx3zaa2nxOwZlKo3apQhs3zKf/mtt9Xx1k9R32kM=,tag:g9w5NwXWpNQRUoIzEB2Lbg==,type:str]
+mikrotik_password: ENC[AES256_GCM,data:euqLUmlmIl9BgQCA3UIB,iv:NiiwAjTdvjkqyHytLBhYOnwtJT7B4cG+ibJLMU8Nizs=,tag:S6Ny2Art29hCygqsfj3tWA==,type:str]
 s3_endpoint: https://s3.your-offsite.example.com
 s3_access_key: ENC[AES256_GCM,data:Hi9UynUkW4h5,iv:c9XpNRXRSD1uRSDduHs3Oihufmx4onDpLRHLtIqplIo=,tag:b6g7hmJ80zm2vKsIfIxtlg==,type:str]
 s3_secret_key: ENC[AES256_GCM,data:mFK4k6LWJRiN,iv:Aut2Xg175d0LX6n5nnQewSJBaGP1/bhV4Qx+zvGYvWc=,tag:R4vudhMgEhAoNXgB5RxRKQ==,type:str]
@@ -18,8 +18,8 @@ sops:
             UFBLcHl6SFRzM0FRZERKQjBiaWNHbmcKmIF4hS2LIE0YWNu7pXl47gwERxEq8BLX
             Kojh+Vy5gQVE3KXWAyeXPsEuM0kD/W1fN5APDwdI/T26vzXjGx0yPg==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-08-02T20:17:36Z"
-    mac: ENC[AES256_GCM,data:E/qZanjyZZP9kwUvci2umBm87rj8+y64JftQ8n1IoyV2l0SbpvvxQBIksEF+PuR9oS3e43cl0bdc2TRXa3OuVUKsl3/IwTe5wkSFUCddsqd/lmdnKltt2MiMyWwHKMbVwWygKcrRV6Cex3Xh8WxENOP9ms7lrq6w7XLlEHpUij8=,iv:BcA/XS8scLm5wn+8m1adRH9/y+tPgUzfbh/K+D4TviQ=,tag:ptkltZok3aCMvdz/JCiTWw==,type:str]
+    lastmodified: "2026-08-02T21:15:19Z"
+    mac: ENC[AES256_GCM,data:FFH1P0e2GZYxokllO71BI8T8ARXPTkRYGpYb8swMOiU11oIdm/ed1DxwPwg8G+MGJtrACsMLLLkd/MbIAyaCKFbe2sxu/gmWI7czdVN7vJYB/WJUsCUYtIEfkccCtpHfhTvPjRQMiB/psUs7qUQs02gpZvmOhgBtjpD7TD5F+VY=,iv:y1oS9QkygFlVYOBtd5Da604aeAqLPFExGnW7Y3zsh9g=,tag:5O1ctffMufc/tORnl+I/SQ==,type:str]
     pgp: []
     encrypted_regex: (password|secret|pass|key|token|credential)
     version: 3.8.1

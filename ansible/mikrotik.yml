@@ -33,13 +33,24 @@
         commands:
           - /export
       register: router_export
+      ignore_errors: true   # don't abort if one router is unreachable
+      tags: always
+
+    - name: Ensure _local/ directory exists
+      ansible.builtin.file:
+        path: "../_local"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      run_once: true
       tags: always
 
     - name: Save backup to _local/
       ansible.builtin.copy:
         content: "{{ router_export.stdout_lines | join('\n') }}"
-        dest: "_local/mikrotik-backup-{{ inventory_hostname }}-{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}.rsc"
+        dest: "../_local/mikrotik-backup-{{ inventory_hostname }}-{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}.rsc"
       delegate_to: localhost
+      when: router_export is succeeded
       tags: always
 
     - name: Ensure automation user exists
