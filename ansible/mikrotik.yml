@@ -24,6 +24,24 @@
           Set MIKROTIK_AUTOMATION_PASSWORD and MIKROTIK_DASHBOARD_PASSWORD
           (both min 16 chars) and mikrotik_password before running this playbook.
 
+    # ── Safety backup ────────────────────────────────────────────────────────
+    # Exports the full router config as a text script (.rsc) before touching
+    # anything. Saved to _local/mikrotik-backup-<host>-<date>.rsc on your PC.
+    # To restore: paste into RouterOS terminal or load via Winbox → New Terminal.
+    - name: Export full router config as backup
+      community.routeros.command:
+        commands:
+          - /export
+      register: router_export
+      tags: always
+
+    - name: Save backup to _local/
+      ansible.builtin.copy:
+        content: "{{ router_export.stdout_lines | join('\n') }}"
+        dest: "_local/mikrotik-backup-{{ inventory_hostname }}-{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}.rsc"
+      delegate_to: localhost
+      tags: always
+
     - name: Ensure automation user exists
       community.routeros.command:
         commands:

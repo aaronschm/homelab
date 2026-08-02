@@ -75,6 +75,15 @@ tasks:
       - 'SOPS_AGE_KEY_FILE={{.AGE_KEY}} find . -name "*.sops.yaml" -not -path "./_local/*" -exec sops updatekeys -y {} \;'
 
   # ------------------------------------------------------ infrastructure ---
+  mikrotik:backup:
+    desc: "Export full MikroTik config to _local/ (safe read-only — run before any changes)"
+    dir: "{{.ANSIBLE_DIR}}"
+    preconditions:
+      - sh: test -f ../{{.AGE_KEY}}
+        msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
+    cmds:
+      - SOPS_AGE_KEY_FILE=../{{.AGE_KEY}} ansible-playbook -i inventory.ini mikrotik.yml --tags always --skip-tags firewall,nat,services,users
+
   firewall:
     desc: "Stage 0 - Update MikroTik firewall rules"
     dir: "{{.ANSIBLE_DIR}}"

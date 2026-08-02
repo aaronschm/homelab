@@ -78,4 +78,4 @@ nat_rules:
     proto: tcp
     ports: ["5223"]
     to_ip: "10.10.25.101"
-    to_ports: "35223"
+    to_ports: "32223"
