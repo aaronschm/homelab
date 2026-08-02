@@ -19,7 +19,9 @@ vm_storage     = "beta"
 ct_storage     = "beta"
 image_storage  = "local"
 network_bridge = "vmbr0"
-enable_vlan_tagging = false
+enable_vlan_tagging = true
+# Note: VLAN 20 (mgmt) guests get no tag because it is the native PVID on the
+# MikroTik trunk port. VLAN 24 and 25 guests are tagged automatically.
 
 ssh_public_keys = [
   "ssh-ed25519 AAAA... you@admin",
@@ -39,11 +41,11 @@ lxc_template = "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
 lxc_password = "change-me-then-rotate"
 
 controlplanes = {
-  "20011" = { vmid = 20011, ip = "10.10.20.11/24", cores = 2, memory = 6144, disk_gb = 50 }
+  "25011" = { vmid = 25011, ip = "10.10.25.11/24", cores = 2, memory = 6144, disk_gb = 50 }
 }
 
 workers = {
-  "20102" = { vmid = 20102, ip = "10.10.20.102/24", cores = 6, memory = 32768, disk_gb = 100 }
+  "25101" = { vmid = 25101, ip = "10.10.25.101/24", cores = 6, memory = 32768, disk_gb = 100 }
 }
 
 # Worker data disks (attached scsi1, scsi2, ... in this order).
@@ -60,20 +62,31 @@ worker_data_disks = [
   # { storage = "alpha", size_gb = 1000, mountpoint = "/var/mnt/alpha" },
 ]
 
-# ── Home Assistant VM ─────────────────────────────────────────────────────────
-# Home Assistant was previously on the alpha ZFS pool (4TB HDD).
-# Move it to beta (1TB SSD) for better responsiveness and to free alpha for
-# decommission. Run on the Proxmox host:
-#
-#   qm move-disk <VMID> ide0 beta --format qcow2 --delete
-#
-# After the disk moves, update the VM config in Proxmox (or Terraform if
-# you track the HA VM in a separate .tf file) to reflect the new storage pool.
-# HA uses very little disk (<32 GB), so it fits comfortably on beta.
 
-# The 6x18TB MinIO drives are passed through raw to the worker VM.
-# See docs/proxmox-iac.md for the qm set commands to attach them.
-minio_disks_by_id = []
+# The 6×18TB MinIO drives are passed through raw to the worker VM.
+# Run these on the Proxmox host once after 'task infra' creates the worker VM,
+# replacing <WORKER_VMID> with the actual vmid (e.g. 25101):
+#
+#   qm set <WORKER_VMID> --scsi2 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53YXLW
+#   qm set <WORKER_VMID> --scsi3 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53YLH2
+#   qm set <WORKER_VMID> --scsi4 /dev/disk/by-id/ata-ST18000NM000J-2TV103_WR500CTT
+#   qm set <WORKER_VMID> --scsi5 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR52XVD4
+#   qm set <WORKER_VMID> --scsi6 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53Z09J
+#   qm set <WORKER_VMID> --scsi7 /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR51SPP6
+#
+# Verify on the Proxmox host:
+#   ls -la /dev/disk/by-id/ | grep ST18000
+#
+# After attaching the drives, run 'task cluster' — Talos will see them as
+# /dev/sdc through /dev/sdh inside the worker VM (scsi1 = Longhorn = /dev/sdb).
+minio_disks_by_id = [
+  "/dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53YXLW",
+  "/dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53YLH2",
+  "/dev/disk/by-id/ata-ST18000NM000J-2TV103_WR500CTT",
+  "/dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR52XVD4",
+  "/dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR53Z09J",
+  "/dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR51SPP6",
+]
 
 lxcs = {
   "20101" = { vmid = 20101, ip = "10.10.20.101/24", vlan_key = "mgmt", cores = 1, memory = 2048, disk_gb = 50 }

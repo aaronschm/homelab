@@ -7,22 +7,35 @@ kubernetes_version = "v1.34.1"
 talos_version      = "v1.13.4"
 install_disk       = "/dev/sda"
 
-# Worker data disks (scsi1, scsi2, ... in order). MUST match the proxmox module.
-# Talos formats + mounts each at .mountpoint and bind-mounts it into the kubelet.
-#   scsi1 -> /dev/sdb -> /var/mnt/longhorn (Longhorn, on beta)
-#   scsi2 -> /dev/sdc -> /var/mnt/alpha    (MinIO/local-path, on alpha)
+# Worker data disks (scsi1, ...) created by the proxmox module.
+# Talos formats + mounts each at .mountpoint inside the worker VM.
+#   scsi1 -> /dev/sdb -> /var/mnt/longhorn   (Longhorn PVCs, on beta SSD 400 GB)
+# Keep IDENTICAL to the proxmox module's worker_data_disks.
 worker_data_disks = [
   { storage = "beta", size_gb = 400, mountpoint = "/var/mnt/longhorn" },
-  { storage = "alpha", size_gb = 1000, mountpoint = "/var/mnt/alpha" },
+]
+
+# 6×18 TB MinIO drives — raw-passthrough from Proxmox host (qm set --scsiN).
+# After 'task infra' creates the worker and you run the qm set commands,
+# the drives appear inside the VM as /dev/sdc .. /dev/sdh (scsi2..scsi7).
+# Talos mounts them at these paths. If a drive already has an XFS filesystem
+# it is mounted in-place; it is only formatted on a brand-new blank drive.
+minio_extra_disks = [
+  { device = "/dev/sdc", mountpoint = "/var/mnt/minio1" },
+  { device = "/dev/sdd", mountpoint = "/var/mnt/minio2" },
+  { device = "/dev/sde", mountpoint = "/var/mnt/minio3" },
+  { device = "/dev/sdf", mountpoint = "/var/mnt/minio4" },
+  { device = "/dev/sdg", mountpoint = "/var/mnt/minio5" },
+  { device = "/dev/sdh", mountpoint = "/var/mnt/minio6" },
 ]
 
 # Registry LXC acting as a pull-through mirror for the dark Cluster VLAN.
 registry_mirror_endpoint = "http://10.10.20.101:5000"
 
 controlplane_nodes = {
-  "20011" = "10.10.20.11"
+  "25011" = "10.10.25.11"
 }
 
 worker_nodes = {
-  "20102" = "10.10.20.102"
+  "25101" = "10.10.25.101"
 }

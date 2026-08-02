@@ -210,14 +210,16 @@
       </div>
       <div class="card">
         <span class="ico">🛡️</span>
-        <h4>Edge</h4>
-        <p>MikroTik firewall policies and the Zot registry mirror, via Ansible.</p>
+        <h4>Network</h4>
+        <p>MikroTik CRS309 (gateway) + CRS310 (switch) firewall policies via Ansible.
+           Zot registry mirror for the dark VLAN 25 cluster.</p>
         <span class="path">ansible/</span>
       </div>
     </div>
 
     <div class="note ok">Run everything from <b>your PC</b>:
-      <code>cd infrastructure &amp;&amp; task all</code> walks the full flow end-to-end.</div>
+      <code>export MIKROTIK_AUTOMATION_PASSWORD=… MIKROTIK_DASHBOARD_PASSWORD=… &amp;&amp; task all</code>
+      walks the full flow end-to-end.</div>
   </section>
 
   <!-- ARCHITECTURE -->
@@ -235,17 +237,19 @@
         </div>
       </div>
 
-      <div class="connector"><span>Proxmox API · SSH · UniFi API</span></div>
+          <div class="connector"><span>Proxmox API · SSH · MikroTik API</span></div>
 
       <div class="layer">
-        <div class="ltitle"><span class="swatch" style="background:var(--violet)"></span>Proxmox host “pve”</div>
+        <div class="ltitle"><span class="swatch" style="background:var(--violet)"></span>Proxmox host "pve" (10.10.20.2)</div>
         <div class="host-wrap">
           <div class="hlabel">Guests (autostarted in boot order)</div>
           <div class="nodes">
-            <div class="node"><div class="nh"><span class="nid">20101</span> Registry</div><div class="nsub">Zot pull-through mirror · LXC</div></div>
-            <div class="node"><div class="nh"><span class="nid">24010</span> Traefik</div><div class="nsub">DMZ reverse proxy · LXC</div></div>
-            <div class="node"><div class="nh"><span class="nid">25011</span> Control plane</div><div class="nsub">Talos VM · etcd + API</div></div>
-            <div class="node"><div class="nh"><span class="nid">25101</span> Worker</div><div class="nsub">Talos VM · workloads + MinIO</div></div>
+            <div class="node"><div class="nh"><span class="nid">20099</span> AdGuard</div><div class="nsub">DNS resolver · LXC · VLAN 20</div></div>
+            <div class="node"><div class="nh"><span class="nid">20100</span> Forgejo</div><div class="nsub">Git server · LXC · VLAN 20</div></div>
+            <div class="node"><div class="nh"><span class="nid">20101</span> Registry</div><div class="nsub">Zot pull-through mirror · LXC · VLAN 20</div></div>
+            <div class="node"><div class="nh"><span class="nid">24010</span> Traefik</div><div class="nsub">DMZ reverse proxy · LXC · VLAN 24</div></div>
+            <div class="node"><div class="nh"><span class="nid">25011</span> Control plane</div><div class="nsub">Talos VM · etcd + API · VLAN 25</div></div>
+            <div class="node"><div class="nh"><span class="nid">25101</span> Worker</div><div class="nsub">Talos VM · workloads + MinIO · VLAN 25</div></div>
           </div>
         </div>
       </div>
@@ -253,11 +257,13 @@
       <div class="connector"><span>kubeconfig · talosconfig</span></div>
 
       <div class="layer">
-        <div class="ltitle"><span class="swatch" style="background:var(--accent2)"></span>Kubernetes (v1.34) · Argo CD</div>
+        <div class="ltitle"><span class="swatch" style="background:var(--accent2)"></span>Kubernetes (v1.34) · Argo CD · Cilium CNI</div>
         <div class="nodes">
-          <div class="node"><div class="nh">💾 Longhorn</div><div class="nsub">default storage · on beta SSD</div></div>
-          <div class="node"><div class="nh">🪣 MinIO</div><div class="nsub">S3 object store · backups</div></div>
-          <div class="node"><div class="nh">🐘 PostgreSQL</div><div class="nsub">database for your apps</div></div>
+          <div class="node"><div class="nh">💾 Longhorn</div><div class="nsub">default storage · LUKS-encrypted · beta SSD</div></div>
+          <div class="node"><div class="nh">🪣 MinIO</div><div class="nsub">S3 object store · 6×18 TB · EC:2 ≈ 72 TB</div></div>
+          <div class="node"><div class="nh">🐘 PostgreSQL</div><div class="nsub">shared database</div></div>
+          <div class="node"><div class="nh">🌐 network.isarcloud.eu</div><div class="nsub">WireGuard · VLAN · NAT dashboard</div></div>
+          <div class="node"><div class="nh">⚖️ legal.isarcloud.eu</div><div class="nsub">Datenschutzerklärung · AVV · consent</div></div>
           <div class="node"><div class="nh">🧩 Your pods</div><div class="nsub">kubernetes/apps/…</div></div>
         </div>
       </div>
@@ -267,25 +273,30 @@
   <!-- NETWORK -->
   <section id="network">
     <h2>Network &amp; VLANs</h2>
-    <p class="lead">Three VLANs on the MikroTik, trunked to the Proxmox uplink on a VLAN-aware
-       <code>vmbr0</code>. VLAN 25 has no internet access by design.</p>
+    <p class="lead">Four VLANs on the MikroTik (CRS309 gateway + CRS310 switch), trunked to the
+       Proxmox uplink on a VLAN-aware <code>vmbr0</code>. VLAN 20 is the native PVID — guests on
+       VLAN 20 are untagged. VLAN 25 has no internet access by design.</p>
     <table>
-      <thead><tr><th>VLAN</th><th>Role</th><th>Subnet</th><th>Internet</th></tr></thead>
+      <thead><tr><th>VLAN</th><th>Role</th><th>Subnet</th><th>Native/Tagged</th><th>Internet</th></tr></thead>
       <tbody>
-        <tr><td><span class="mono">20</span></td><td>Management</td><td class="mono">10.10.20.0/24</td><td><span class="pill on">yes</span></td></tr>
-        <tr><td><span class="mono">24</span></td><td>DMZ</td><td class="mono">10.10.24.0/24</td><td><span class="pill on">yes</span></td></tr>
-        <tr><td><span class="mono">25</span></td><td>Cluster</td><td class="mono">10.10.25.0/24</td><td><span class="pill off">no</span></td></tr>
+        <tr><td><span class="mono">10</span></td><td>Trusted</td><td class="mono">10.10.10.0/24</td><td>tagged</td><td><span class="pill on">yes</span></td></tr>
+        <tr><td><span class="mono">20</span></td><td>Management</td><td class="mono">10.10.20.0/24</td><td><b>native PVID</b> (untagged)</td><td><span class="pill on">yes</span></td></tr>
+        <tr><td><span class="mono">24</span></td><td>DMZ</td><td class="mono">10.10.24.0/24</td><td>tagged</td><td><span class="pill on">yes</span></td></tr>
+        <tr><td><span class="mono">25</span></td><td>Cluster</td><td class="mono">10.10.25.0/24</td><td>tagged</td><td><span class="pill off">no</span></td></tr>
       </tbody>
     </table>
 
     <div class="note">VLAN 25 nodes never touch the internet. They pull container images
       through the <b>Zot mirror</b> at <code>10.10.20.101:5000</code> on VLAN 20. Talos has no
-      SSH and no package manager, so the attack surface is smaller than the old script setup.</div>
+      SSH and no package manager — minimal attack surface.</div>
 
     <h3>Firewall automation</h3>
-    <p class="muted"><code>ansible/mikrotik.yml</code> logs into the MikroTik with a local admin
-       account, discovers the existing firewall policies, then applies the rules the cluster
-       needs. VLANs themselves are created in the UniFi UI; Ansible only manages policies.</p>
+    <p class="muted"><code>ansible/mikrotik.yml</code> configures both MikroTik devices:
+       <b>CRS309</b> (<code>10.10.1.2</code>) is the L3 gateway + WireGuard + NAT;
+       <b>CRS310</b> (<code>10.10.1.3</code>) is the PoE managed switch.
+       Run <code>task firewall</code> to apply (requires <code>MIKROTIK_AUTOMATION_PASSWORD</code> and
+       <code>MIKROTIK_DASHBOARD_PASSWORD</code> env vars). VLAN networks are created on the MikroTik;
+       Ansible manages firewall policies and managed users only.</p>
   </section>
 
   <!-- INVENTORY -->
@@ -297,17 +308,19 @@
     <table>
       <thead><tr><th>Name / vmid</th><th>Role</th><th>Type</th><th>VLAN</th><th>IP</th><th>Sizing</th></tr></thead>
       <tbody>
+        <tr><td class="mono">20099</td><td>AdGuard Home (DNS)</td><td>LXC</td><td>20</td><td class="mono">10.10.20.99</td><td class="muted">1 vCPU · 512 MB · 8 GB</td></tr>
+        <tr><td class="mono">20100</td><td>Forgejo git server</td><td>LXC</td><td>20</td><td class="mono">10.10.20.100</td><td class="muted">1 vCPU · 1 GB · 20 GB</td></tr>
         <tr><td class="mono">20101</td><td>Zot registry mirror</td><td>LXC</td><td>20</td><td class="mono">10.10.20.101</td><td class="muted">1 vCPU · 2 GB · 50 GB</td></tr>
+        <tr><td class="mono">20102</td><td>Uptime Kuma</td><td>LXC</td><td>20</td><td class="mono">10.10.20.102</td><td class="muted">1 vCPU · 512 MB · 8 GB</td></tr>
         <tr><td class="mono">24010</td><td>Traefik reverse proxy</td><td>LXC</td><td>24</td><td class="mono">10.10.24.10</td><td class="muted">1 vCPU · 1 GB · 8 GB</td></tr>
         <tr><td class="mono">25011</td><td>Talos control plane</td><td>VM</td><td>25</td><td class="mono">10.10.25.11</td><td class="muted">2 vCPU · 6 GB · 50 GB</td></tr>
-        <tr><td class="mono">25101</td><td>Talos worker + MinIO</td><td>VM</td><td>25</td><td class="mono">10.10.25.101</td><td class="muted">6 vCPU · 32 GB · 100 GB + data</td></tr>
-        <tr><td class="mono">24020</td><td>Pelican Wings gameserver</td><td>VM</td><td>24</td><td class="mono">10.10.24.20</td><td class="muted">4 vCPU · 10 GB · 200 GB (beta)</td></tr>
+        <tr><td class="mono">25101</td><td>Talos worker + MinIO</td><td>VM</td><td>25</td><td class="mono">10.10.25.101</td><td class="muted">6 vCPU · 32 GB · 100 GB + 6×18 TB</td></tr>
+        <tr><td class="mono">24020</td><td>Pelican Wings gameserver</td><td>VM</td><td>24</td><td class="mono">10.10.24.20</td><td class="muted">4 vCPU · 10 GB · 200 GB</td></tr>
       </tbody>
     </table>
-    <div class="note">The worker carries 32 GB because it runs <b>all cluster pods</b>
-      plus MinIO; RAM is reserved for HAOS and other host LXCs, and the gameserver gets
-      the leftover (10 GB). On a 64 GB host (R7 5800X) this sums to the full budget —
-      see <code>docs/proxmox-iac.md</code> for the breakdown.</div>
+    <div class="note">VLAN 20 guests (mgmt) are <b>untagged</b> — VLAN 20 is the native PVID on the
+      trunk port. VLAN 24 and 25 guests carry explicit VLAN tags. The Proxmox bridge <code>vmbr0</code>
+      must be VLAN-aware for tagging to work.</div>
   </section>
 
   <!-- STORAGE -->
@@ -317,21 +330,26 @@
     <table>
       <thead><tr><th>Pool</th><th>Hardware</th><th>Use</th></tr></thead>
       <tbody>
-        <tr><td class="mono">alpha</td><td>4 TB raidz1 (retiring)</td><td>Interim MinIO backing (1000 GB → <code>/var/mnt/alpha</code>)</td></tr>
-        <tr><td class="mono">beta</td><td>1 TB SSD</td><td>VM/LXC disks + <b>Longhorn</b> data (400 GB → <code>/var/mnt/longhorn</code>)</td></tr>
-        <tr><td class="mono">gamma</td><td>6×18 TB (not yet installed)</td><td>Future MinIO via raw passthrough</td></tr>
-        <tr><td class="mono">local</td><td>rpool (2×240 GB SSD raidz1 boot mirror)</td><td>Proxmox directory storage on the ZFS boot pool — ISOs + cloud-init snippets</td></tr>
+        <tr><td class="mono">beta</td><td>1 TB SSD (CT1000BX500SSD1)</td><td>VM/LXC disks + <b>Longhorn</b> data (400 GB → <code>/var/mnt/longhorn</code>)</td></tr>
+        <tr><td class="mono">local</td><td>rpool (2×240 GB SSD RAID-1 boot)</td><td>Proxmox directory storage — ISOs + cloud-init snippets</td></tr>
       </tbody>
     </table>
+    <div class="note ok">The 6×18 TB Seagate Exos drives (ST18000NM000J-2TV103) are passed raw to the
+      worker VM and used exclusively by MinIO — they do not belong to any Proxmox pool.
+      MinIO runs in distributed mode (EC:2 = 4 data + 2 parity ≈ <b>72 TB usable</b>).
+      Drives appear as <code>/dev/sdc–/dev/sdh</code> inside the VM.</div>
 
     <h3>Kubernetes <span class="accent">storage classes</span></h3>
     <div class="grid cols-3">
       <div class="card"><span class="ico">💾</span><h4>Longhorn</h4>
-        <p>Default class, <b>LUKS-encrypted</b>. Replicated block storage (1 replica on the single worker) on the beta SSD. Every pod PVC lands here — and because volumes are encrypted, every backup is ciphertext.</p></div>
-      <div class="card"><span class="ico">🪣</span><h4>MinIO</h4>
-        <p>In-cluster S3 on alpha for now. Holds the <code>longhorn-backups</code> bucket; later moves to the gamma drives. MinIO doesn't add its own encryption — but the Longhorn blobs it stores are <b>already LUKS-encrypted</b>, so on-disk and off-site they're ciphertext.</p></div>
+        <p>Default class, <b>LUKS-encrypted</b>. Block storage (1 replica) on the beta SSD.
+           6-hourly backups to MinIO. Every PVC backup is ciphertext before it reaches MinIO.</p></div>
+      <div class="card"><span class="ico">🪣</span><h4>MinIO S3</h4>
+        <p>6×18 TB distributed, EC:2. Primary storage for OwnCloud, Immich, Jellyfin (large media).
+           Also receives Longhorn backups. Offsite-encrypted before leaving the house.</p></div>
       <div class="card"><span class="ico">📁</span><h4>local-path</h4>
-        <p>Non-default. Backs MinIO's own volume from <code>/var/mnt/alpha</code> on the worker.</p></div>
+        <p>Non-default. Small cache/config volumes (Jellyfin config, Immich model-cache) that don't
+           need replication. Fast, no overhead.</p></div>
     </div>
 
     <h3>Backup <span class="accent">chain</span></h3>
@@ -341,7 +359,7 @@
         <div class="node"><div class="nh">🪣 MinIO app data</div><div class="nsub">ownCloud, immich… (Jellyfin excluded)</div></div>
       </div></div>
       <div class="connector"><span>Longhorn RecurringJob 6h · retain 8&nbsp;&nbsp;|&nbsp;&nbsp;rclone crypt sync 6h (client-side encrypted)</span></div>
-      <div class="layer"><div class="nodes"><div class="node"><div class="nh">🪣 local MinIO</div><div class="nsub">alpha → later gamma</div></div></div></div>
+      <div class="layer"><div class="nodes"><div class="node"><div class="nh">🪣 local MinIO</div><div class="nsub">6×18 TB distributed EC:2 · ~72 TB usable</div></div></div></div>
       <div class="connector"><span>mc mirror 3h · rclone crypt → friend</span></div>
       <div class="layer"><div class="nodes"><div class="node"><div class="nh">🌍 Friend's MinIO</div><div class="nsub">off-site copy · ciphertext only</div></div></div></div>
     </div>
@@ -372,33 +390,71 @@
     </div>
   </section>
 
-  <!-- SERVICES (placeholder) -->
+  <!-- SERVICES -->
   <section id="services">
     <h2>Services</h2>
     <p class="lead">Anything in <code>kubernetes/apps/</code> is auto-deployed by Argo CD —
-       add a folder, commit, and it appears. This is your living catalogue.</p>
+       add a folder, commit, and it appears. See <code>docs/roadmap.md</code> for the full catalogue.</p>
     <div class="grid cols-3">
       <div class="card"><span class="ico">🐘</span><h4>PostgreSQL <span class="pill on">deployed</span></h4>
-        <p>StatefulSet on a Longhorn PVC, backed up off-site. A ready database for your apps.</p>
+        <p>StatefulSet on a Longhorn PVC, backed up off-site. Shared database for all apps.</p>
         <span class="path">kubernetes/apps/postgresql</span></div>
 
       <div class="card"><span class="ico">🎮</span><h4>Pelican <span class="pill on">deployed</span></h4>
-        <p>Game-server management. Panel runs here; Wings runs on VM 24020. Backs up to MinIO.</p>
+        <p>Game-server management. Panel in Kubernetes; Wings on VM 24020. Backs up to MinIO.</p>
         <span class="path">kubernetes/apps/pelican-panel</span></div>
 
-      <!-- ==================== SERVICES PLACEHOLDER ==================== -->
-      <!-- Add a card per service as you deploy it under kubernetes/apps/. -->
-      <div class="card" style="border-style: dashed;"><span class="ico">➕</span>
-        <h4>Add a service <span class="pill soon">planned</span></h4>
-        <p>Drop manifests in <code>kubernetes/apps/&lt;name&gt;/</code> and document it here.</p></div>
-      <div class="card" style="border-style: dashed;"><span class="ico">➕</span>
-        <h4>Add a service <span class="pill soon">planned</span></h4>
-        <p>e.g. Forgejo, Jellyfin, Immich, Home Assistant, Grafana…</p></div>
-      <!-- ============================================================== -->
+      <div class="card"><span class="ico">🌐</span><h4>Network Dashboard <span class="pill on">deployed</span></h4>
+        <p><code>network.isarcloud.eu</code> — WireGuard peer management, VLAN viewer, NAT rules.
+           Client-side WG key generation (private key never leaves the browser).
+           Manages both CRS309 and CRS310.</p>
+        <span class="path">kubernetes/apps/router-dashboard</span></div>
+
+      <div class="card"><span class="ico">⚖️</span><h4>Legal pages <span class="pill on">deployed</span></h4>
+        <p><code>legal.isarcloud.eu</code> — Datenschutzerklärung, AVV, face-recognition consent,
+           data deletion form. Public (no auth). Served by an nginx pod from a ConfigMap.</p>
+        <span class="path">kubernetes/apps/legal</span></div>
+
+      <div class="card"><span class="ico">☸️</span><h4>Cilium CNI <span class="pill on">deployed</span></h4>
+        <p>Replaces kube-proxy. WireGuard pod-to-pod encryption. Hubble observability.
+           Default-deny NetworkPolicies enforced at eBPF level for all 11 app namespaces.</p>
+        <span class="path">kubernetes/platform/cilium</span></div>
+
+      <div class="card"><span class="ico">📊</span><h4>Grafana Alloy <span class="pill on">deployed</span></h4>
+        <p>Log collection with privacy pipeline: IP addresses SHA-256 hashed,
+           User-Agent strings dropped, tokens stripped. Prometheus metrics forwarded unmodified.</p>
+        <span class="path">kubernetes/platform/alloy</span></div>
+
+      <div class="card"><span class="ico">🔐</span><h4>Authentik <span class="pill soon">planned</span></h4>
+        <p>SSO / OIDC. Forward-auth middleware on Traefik. Onboarding flow includes AVV + face-consent.</p>
+        <span class="path">kubernetes/apps/authentik</span></div>
+
+      <div class="card"><span class="ico">🔑</span><h4>Vaultwarden <span class="pill soon">planned</span></h4>
+        <p><code>vault.isarcloud.eu</code>. Migrate SQLite + attachments from the old LXC.
+           Signups disabled by default (invite-only).</p>
+        <span class="path">kubernetes/apps/vaultwarden</span></div>
+
+      <div class="card"><span class="ico">☁️</span><h4>OwnCloud Infinite Scale <span class="pill soon">planned</span></h4>
+        <p>File sync &amp; share. Primary storage via MinIO S3 objectstore.</p>
+        <span class="path">kubernetes/apps/owncloud</span></div>
+
+      <div class="card"><span class="ico">🖼️</span><h4>Immich <span class="pill soon">planned</span></h4>
+        <p>Photo library. Media on MinIO 18 TB drives. Face recognition requires explicit
+           consent (Art. 9 DSGVO) — consent page at <code>legal.isarcloud.eu/consent-face.html</code>.</p>
+        <span class="path">kubernetes/apps/immich</span></div>
+
+      <div class="card"><span class="ico">🎬</span><h4>Jellyfin <span class="pill soon">planned</span></h4>
+        <p>Media server. Media on MinIO 18 TB drives. Config on <code>local-path</code>.</p>
+        <span class="path">kubernetes/apps/jellyfin</span></div>
+
+      <div class="card"><span class="ico">💬</span><h4>Matrix Synapse <span class="pill soon">planned</span></h4>
+        <p>Self-hosted chat. Federation restricted to EU IP ranges (Traefik IPAllowList).
+           Client API unrestricted.</p>
+        <span class="path">kubernetes/apps/synapse</span></div>
     </div>
-    <div class="note">See <code>docs/roadmap.md</code> for the full target catalogue. Services
-      needing a database point at <code>postgresql.postgresql.svc:5432</code>; services needing
-      object storage use <code>minio.minio.svc:9000</code>.</div>
+    <div class="note">Services needing a database point at <code>postgresql.postgresql.svc:5432</code>;
+      services needing object storage use <code>minio.minio.svc:9000</code>.
+      See <code>docs/roadmap.md</code> for the full catalogue and GDPR checklist.</div>
   </section>
 
   <!-- GETTING STARTED -->
@@ -412,38 +468,58 @@
       <div class="card"><span class="ico">🔑</span><h4>Proxmox API token</h4>
         <p>In Proxmox: <i>Datacenter → Permissions → API Tokens</i>. Create a token (e.g.
            <code>root@pam!homelab</code>), give it privileges on <code>/</code>. Paste the
-           <code>USER@REALM!ID=UUID</code> into <code>pve_api_token</code>.</p></div>
-      <div class="card"><span class="ico">🌐</span><h4>MikroTik local admin</h4>
-        <p>UniFi → <i>Settings → Admins</i> → add a <b>local</b> admin (not the Ubiquiti cloud
-           account). The firewall playbook logs in with it. Put it in <code>group_vars/all.yml</code>.</p></div>
+           <code>USER@REALM!ID=UUID</code> into <code>pve_api_token</code> in proxmox tfvars.</p></div>
+      <div class="card"><span class="ico">🌐</span><h4>MikroTik admin password</h4>
+        <p>The existing MikroTik admin password goes in <code>ansible/group_vars/all.sops.yaml</code>
+           as <code>mikrotik_password</code>. Two additional managed users are created automatically
+           by <code>task firewall</code>: the <code>automation</code> user (Ansible) and
+           <code>network-dashboard</code> user (UI). Pass their passwords as env vars:
+           <code>MIKROTIK_AUTOMATION_PASSWORD</code> and <code>MIKROTIK_DASHBOARD_PASSWORD</code>.</p></div>
       <div class="card"><span class="ico">🧱</span><h4>Proxmox host prep</h4>
-        <p>Make <code>vmbr0</code> VLAN-aware; trunk VLANs 20/24/25 on the MikroTik uplink port. Have
-           the LXC template and storage pools (<code>beta</code>, <code>alpha</code>) present.</p></div>
+        <p>Make <code>vmbr0</code> VLAN-aware. Trunk VLANs 10/20/24/25 on the MikroTik uplink port
+           (VLAN 20 as native PVID). Attach the 6×18 TB drives — run the <code>qm set</code> commands
+           from <code>terraform.tfvars.example</code> after <code>task infra</code> creates the worker VM.
+           Have the LXC template (<code>debian-13-standard</code>) and beta SSD pool present.</p></div>
       <div class="card"><span class="ico">🔐</span><h4>SSH key</h4>
-        <p>Your public key goes in <code>ssh_public_keys</code> — injected into the LXCs and the
-           gameserver VM (Talos nodes have no SSH).</p></div>
-      <div class="card"><span class="ico">📡</span><h4>VLANs on the MikroTik</h4>
-        <p>Create networks for VLAN 20 / 24 / 25 in UniFi (already done in your case). Ansible only
-           manages firewall <i>policies</i>, not the networks themselves.</p></div>
+        <p>Your public key goes in <code>ssh_public_keys</code> in proxmox tfvars — injected into
+           LXCs and the gameserver VM. Talos nodes have no SSH.</p></div>
+      <div class="card"><span class="ico">🔒</span><h4>Age keypair (SOPS)</h4>
+        <p>Run <code>task secrets:init</code> once. This generates your age encryption keypair in
+           <code>_local/age.key</code> (git-ignored). The public key goes in <code>.sops.yaml</code>
+           — it's already set if you cloned this repo. The private key stays only on your machine.</p></div>
       <div class="card"><span class="ico">🧰</span><h4>Tools on your PC</h4>
-        <p><code>terraform</code>, <code>talosctl</code>, <code>kubectl</code>, <code>helm</code>,
-           <code>ansible</code> — plus reachability to ports 8006 / 50000 / 6443.</p></div>
+        <p>Run <code>task setup</code> (installs via mise): <code>terraform</code>,
+           <code>talosctl</code>, <code>kubectl</code>, <code>sops</code>, <code>age</code>,
+           <code>ansible</code>. Also: <code>ansible-galaxy collection install -r ansible/requirements.yml</code>.</p></div>
     </div>
 
-    <h3>2 · Files you copy &amp; fill in <span class="accent">(all git-ignored)</span></h3>
+    <h3>2 · Files you copy &amp; fill in <span class="accent">(git-ignored)</span></h3>
     <table>
       <thead><tr><th>Copy from</th><th>To</th><th>Put in it</th></tr></thead>
       <tbody>
-        <tr><td class="mono">terraform/proxmox/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>PVE endpoint, API token, node, storage, image URLs, guest maps</td></tr>
-        <tr><td class="mono">terraform/talos/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>Talos schematic image URL, node maps, data disks</td></tr>
-        <tr><td class="mono">ansible/group_vars/all.example.yml</td><td class="mono">…/all.yml</td><td>MikroTik host, local admin username + password</td></tr>
-        <tr><td class="mono">kubernetes/**/​*-secret.example.yaml</td><td class="mono">…/*-secret.yaml</td><td>MinIO root, Longhorn backup creds, <b>longhorn-crypto + offsite-crypt passphrases</b>, off-site MinIO creds, PostgreSQL, Pelican APP_KEY</td></tr>
+        <tr><td class="mono">terraform/proxmox/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>PVE endpoint, API token, storage pools, SSH key, LXC template</td></tr>
+        <tr><td class="mono">terraform/talos/terraform.tfvars.example</td><td class="mono">…/terraform.tfvars</td><td>Talos image URL, node IPs, drive device paths (<code>minio_extra_disks</code>)</td></tr>
+        <tr><td class="mono">ansible/group_vars/all.sops.example.yaml</td><td class="mono">…/all.sops.yaml</td><td><code>mikrotik_password</code>, S3 backup creds — then <b>encrypt</b>: <code>task vars:init</code></td></tr>
+        <tr><td class="mono">kubernetes/**/*-secret.sops.yaml</td><td class="mono">(already encrypted)</td><td>Edit with <code>task secrets:edit -- path/to/file.sops.yaml</code>; replace all <code>CHANGE_ME</code> values</td></tr>
       </tbody>
     </table>
-    <div class="note ok">Then: <code>cd infrastructure &amp;&amp; task all</code>. The five phases
-      (firewall → infra → cluster → gitops → secrets) run in order and hand the cluster to Argo CD.</div>
+    <div class="note ok">
+      <b>SOPS secrets flow:</b> every secret is an age-encrypted <code>*.sops.yaml</code> file.
+      <code>task secrets:init</code> generates your keypair.
+      <code>task vars:init</code> creates the Ansible group vars file from the template.
+      <code>task secrets:edit -- path/to/file</code> opens any encrypted file for editing.
+      <code>task secrets:apply</code> decrypts and applies all Kubernetes secrets to the cluster.
+      Argo CD never sees plaintext secrets.
+    </div>
 
-    <h3>3 · Tuning <span class="accent">without rewriting the repo</span></h3>
+    <h3>3 · Bring-up order</h3>
+    <div class="note ok">
+      <code>export MIKROTIK_AUTOMATION_PASSWORD="…" MIKROTIK_DASHBOARD_PASSWORD="…"</code><br/>
+      <code>task all</code> — runs: firewall → infra → cluster → gitops → secrets:apply
+    </div>
+    <p class="muted">After <code>task infra</code> creates the worker VM, run the <code>qm set</code>
+      commands (in <code>terraform/proxmox/terraform.tfvars.example</code>) to attach the 6×18 TB drives
+      before <code>task cluster</code>.</p>
     <p class="muted">Almost everything is data in <code>*.tfvars</code> / YAML. Common changes:</p>
 
     <details><summary>Different network layout / VLANs</summary>
@@ -487,9 +563,19 @@
         and Argo CD deploys it (the app-of-apps recurses and ignores <code>*.example.yaml</code>). Use
         Longhorn for volumes and the in-cluster PostgreSQL / MinIO for data. See <code>docs/roadmap.md</code>.</p></div></details>
     <details><summary>Where do secrets live?</summary>
-      <div class="body"><p>No real secrets in Git — only <code>*.example.yaml</code> templates, applied via
-        <code>task secrets:apply</code> or sealed with kubeseal. Talos PKI lives in the talos Terraform state;
-        keep that out of Git and treat it as sensitive.</p></div></details>
+      <div class="body"><p>All secrets are <b>age-encrypted SOPS files</b> (<code>*.sops.yaml</code>) committed to Git.
+        Argo CD deliberately excludes them — it only applies plaintext manifests.
+        <code>task secrets:apply</code> decrypts and applies them to the live cluster.
+        To edit any secret: <code>task secrets:edit -- path/to/file.sops.yaml</code>.
+        Talos PKI lives in the talos Terraform state file — keep that file off Git and treat it as sensitive.
+        The age private key lives in <code>_local/age.key</code> (git-ignored) — back it up to Vaultwarden.</p></div></details>
+    <details><summary>What does <code>task secrets:init</code> do?</summary>
+      <div class="body"><p>It generates an <b>age keypair</b> at <code>_local/age.key</code>.
+        This is a one-time setup step per workstation.
+        It does <b>NOT</b> create or fill any passwords — those go in the <code>*.sops.yaml</code> files.
+        The public key is already in <code>.sops.yaml</code>; SOPS uses it to encrypt.
+        The private key is used at runtime (via <code>SOPS_AGE_KEY_FILE</code>) to decrypt.
+        Think of it as: <i>init = create your lock and key</i>, filling secrets = putting valuables in the safe.</p></div></details>
   </section>
 
   <!-- RECOVERY -->
@@ -513,11 +599,12 @@
     <table>
       <thead><tr><th>Item</th><th>File</th><th>Why it's critical</th></tr></thead>
       <tbody>
-        <tr><td><b>longhorn-crypto passphrase</b></td><td class="mono">longhorn-crypto-secret.yaml</td><td>Decrypts the pod-volume backups. No passphrase = data gone forever.</td></tr>
-        <tr><td><b>offsite-crypt passphrase</b></td><td class="mono">offsite-crypt-secret.yaml</td><td>Decrypts the MinIO app-data backups (ownCloud, immich…). Independent of longhorn-crypto.</td></tr>
-        <tr><td>Friend's MinIO creds</td><td class="mono">offsite-replication-secret.yaml</td><td>How you reach the off-site copy.</td></tr>
+        <tr><td><b>longhorn-crypto passphrase</b></td><td class="mono">longhorn-crypto-secret.sops.yaml</td><td>Decrypts the pod-volume backups. No passphrase = data gone forever.</td></tr>
+        <tr><td><b>offsite-crypt passphrase</b></td><td class="mono">offsite-crypt-secret.sops.yaml</td><td>Decrypts the MinIO app-data backups. Independent of longhorn-crypto.</td></tr>
+        <tr><td>Friend's MinIO creds</td><td class="mono">offsite-replication-secret.sops.yaml</td><td>How you reach the off-site copy.</td></tr>
+        <tr><td>age private key</td><td class="mono">_local/age.key</td><td>Decrypts ALL SOPS secrets. Lose it and you cannot decrypt anything.</td></tr>
         <tr><td>Proxmox API token</td><td class="mono">proxmox/terraform.tfvars</td><td>Rebuilds VMs/LXCs (re-issuable from the PVE UI).</td></tr>
-        <tr><td>App secrets</td><td class="mono">*-secret.yaml</td><td>MinIO root, PostgreSQL, Pelican — mostly re-settable.</td></tr>
+        <tr><td>App secrets</td><td class="mono">*-secret.sops.yaml</td><td>MinIO root, PostgreSQL, router-dashboard creds — mostly re-settable.</td></tr>
       </tbody>
     </table>
     <div class="note ok"><b>Your escrow plan:</b> Bitwarden, synced across all your devices.
@@ -526,9 +613,15 @@
 
     <h3>Rebuild on a <span class="accent">new server</span></h3>
     <ol class="steps">
-      <li>Install Proxmox VE; node <code>pve</code>; recreate pools (<code>beta</code>, ISO/template dir on <code>local</code>/rpool); make <code>vmbr0</code> VLAN-aware.</li>
-      <li>Clone this repo; restore the escrowed <code>terraform.tfvars</code> and every <code>*-secret.yaml</code> — above all <code>longhorn-crypto-secret.yaml</code> with the <b>original</b> passphrase.</li>
-      <li><code>cd infrastructure &amp;&amp; task all</code> — Talos brings the cluster up; Argo CD redeploys everything.</li>
+      <li>Install Proxmox VE; node <code>pve</code>; recreate pools (<code>beta</code> 1TB SSD,
+          ISO/template dir on <code>local</code>); make <code>vmbr0</code> VLAN-aware.
+          Reattach the 6×18 TB drives (no data loss — they carry their XFS filesystems).</li>
+      <li>Clone this repo; run <code>task secrets:init</code> (restore <code>_local/age.key</code> from
+          Vaultwarden); restore all <code>*.sops.yaml</code> secrets and every <code>terraform.tfvars</code>.</li>
+      <li>Run <code>qm set</code> commands to attach the 18 TB drives to the worker VM
+          (see proxmox <code>terraform.tfvars.example</code>).</li>
+      <li><code>export MIKROTIK_AUTOMATION_PASSWORD=… MIKROTIK_DASHBOARD_PASSWORD=…</code>
+          then <code>task all</code>. Talos brings the cluster up; Argo CD redeploys everything.</li>
       <li>Point Longhorn's backup target at the friend's MinIO (or <code>mc mirror</code> his bucket back into the fresh local MinIO).</li>
       <li>Longhorn UI → <b>Backup</b> → restore each volume into its original PVC name. Argo reconciles the apps onto the restored data.</li>
     </ol>

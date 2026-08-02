@@ -69,9 +69,12 @@ variable "network_bridge" {
 
 variable "enable_vlan_tagging" {
   description = <<-EOT
-    Tag guest NICs with the VLAN ids in var.vlans. Requires vmbr0 to be
-    VLAN-aware AND the UDM uplink port to trunk VLANs 20/24/25. Set false to
-    deploy everything untagged on the bridge's native VLAN during transition.
+    Tag guest NICs with VLAN ids (see locals.tf). Requires vmbr0 to be VLAN-aware
+    AND the MikroTik trunk port to carry VLANs 20/24/25.
+    Set false to deploy everything untagged on the bridge's native VLAN during
+    an initial bring-up where the trunk is not yet configured.
+    Note: mgmt (VLAN 20) guests are always untagged regardless of this setting,
+    because VLAN 20 is the native PVID on the trunk.
   EOT
   type        = bool
   default     = true
