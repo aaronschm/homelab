@@ -56,3 +56,27 @@
           {% endfor %}
           {{ cmds }}
       tags: firewall
+
+    - name: Clean up old Ansible NAT rules
+      community.routeros.command:
+        commands:
+          - /ip firewall nat remove [find comment~"\\(Ansible\\)"]
+      tags: nat
+
+    - name: Apply Port Forwarding (NAT) Rules
+      community.routeros.command:
+        commands: >-
+          {% set cmds = [] %}
+          {% for rule in nat_rules | default([]) %}
+            {% set ports = rule.ports | join(',') %}
+            {% set _ = cmds.append(
+               "/ip firewall nat add chain=dstnat action=dst-nat " ~
+               "protocol=" ~ rule.proto | lower ~ " " ~
+               "dst-port=" ~ ports ~ " " ~
+               "to-addresses=" ~ rule.to_ip ~ " " ~
+               ( "to-ports=" ~ rule.to_ports ~ " " if rule.to_ports is defined else "" ) ~
+               "comment=\"" ~ rule.name ~ " (Ansible)\""
+            ) %}
+          {% endfor %}
+          {{ cmds }}
+      tags: nat

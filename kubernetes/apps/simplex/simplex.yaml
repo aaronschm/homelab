@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: simplex
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smp-server
+  namespace: simplex
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smp-server
+  template:
+    metadata:
+      labels:
+        app: smp-server
+    spec:
+      containers:
+        - name: smp-server
+          image: simplexchat/smp-server:latest
+          args: ["start"]
+          ports:
+            - containerPort: 5223
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /var/opt/simplex
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: simplex-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: simplex-data
+  namespace: simplex
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-encrypted
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smp-server
+  namespace: simplex
+spec:
+  type: NodePort
+  ports:
+    - name: smp
+      port: 5223
+      nodePort: 32223
+      protocol: TCP
+  selector:
+    app: smp-server

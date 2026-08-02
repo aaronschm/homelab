@@ -62,3 +62,22 @@ firewall_rules:
     dst_ips: ["10.10.20.100"]
     ports: [3000]
     proto: tcp
+
+nat_rules:
+  - name: "RustDesk Relay TCP"
+    proto: tcp
+    ports: ["21115-21119"]
+    to_ip: "10.10.25.101"
+    to_ports: "31115-31119"
+    
+  - name: "RustDesk Relay UDP"
+    proto: udp
+    ports: ["21116"]
+    to_ip: "10.10.25.101"
+    to_ports: "31116"
+    
+  - name: "SimpleX Chat SMP"
+    proto: tcp
+    ports: ["5223"]
+    to_ip: "10.10.25.101"
+    to_ports: "35223"
