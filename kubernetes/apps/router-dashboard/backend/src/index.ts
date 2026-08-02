@@ -6,7 +6,11 @@ import path from 'path';
 import nacl from 'tweetnacl';
 
 const app = express();
-app.use(cors());
+// Restrict CORS to the dashboard's own origin only.
+// The nginx sidecar already proxies /api, so external browsers never hit this
+// port directly — this is a defence-in-depth measure.
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://router.isarcloud.eu';
+app.use(cors({ origin: ALLOWED_ORIGIN, credentials: true }));
 app.use(express.json());
 
 const ROUTER_IP = process.env.ROUTER_IP || '10.10.1.2';

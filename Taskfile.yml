@@ -36,6 +36,20 @@ tasks:
       - 'echo "Add this PUBLIC key to .sops.yaml (age: field):"'
       - age-keygen -y {{.AGE_KEY}}
 
+  vars:init:
+    desc: "Create ansible/group_vars/all.sops.yaml from the example and encrypt it"
+    preconditions:
+      - sh: test -f {{.AGE_KEY}}
+        msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
+      - sh: command -v sops >/dev/null 2>&1
+        msg: "Missing sops in PATH. Run: task setup"
+    status:
+      - test -f {{.ANSIBLE_DIR}}/group_vars/all.sops.yaml
+    cmds:
+      - cp {{.ANSIBLE_DIR}}/group_vars/all.sops.example.yaml {{.ANSIBLE_DIR}}/group_vars/all.sops.yaml
+      - 'echo "Edit {{.ANSIBLE_DIR}}/group_vars/all.sops.yaml, then run:"'
+      - 'echo "  SOPS_AGE_KEY_FILE={{.AGE_KEY}} sops --encrypt --in-place {{.ANSIBLE_DIR}}/group_vars/all.sops.yaml"'
+
   secrets:pubkey:
     desc: Print your age public key
     preconditions:
@@ -67,8 +81,10 @@ tasks:
     preconditions:
       - sh: command -v ansible-playbook >/dev/null 2>&1
         msg: "Missing ansible-playbook in PATH."
+      - sh: test -f ../{{.AGE_KEY}}
+        msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
     cmds:
-      - ansible-playbook -i inventory.ini mikrotik.yml
+      - SOPS_AGE_KEY_FILE=../{{.AGE_KEY}} ansible-playbook -i inventory.ini mikrotik.yml
 
   infra:
     desc: "Stage 1 - Create LXCs + Talos VMs via Proxmox API"

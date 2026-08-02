@@ -21,6 +21,8 @@ kubeconfig
 *.kubeconfig
 
 # Ansible secrets (UDM creds, vault)
+# all.sops.yaml is the SOPS-encrypted version tracked in git.
+# all.yml (plaintext fallback) must never be committed.
 ansible/group_vars/all.yml
 *.vault.yml
 

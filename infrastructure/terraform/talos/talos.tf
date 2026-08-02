@@ -47,31 +47,49 @@ locals {
 
   # Format + mount the worker data disks (scsi1=/dev/sdb, scsi2=/dev/sdc, ...).
   # Longhorn uses /var/mnt/longhorn (beta) and local-path/MinIO uses /var/mnt/alpha.
-  worker_disks_patch = length(var.worker_data_disks) == 0 ? {} : {
+  # MinIO extra drives (raw passthrough, scsi3+) are appended to the same list.
+  worker_disks_patch = (length(var.worker_data_disks) + length(var.minio_extra_disks)) == 0 ? {} : {
     machine = {
-      disks = [
-        for i, d in var.worker_data_disks : {
-          device     = "/dev/sd${substr("bcdefghij", i, 1)}"
-          partitions = [{ mountpoint = d.mountpoint }]
-        }
-      ]
+      disks = concat(
+        [
+          for i, d in var.worker_data_disks : {
+            device     = "/dev/sd${substr("bcdefghijklmnopqrstuvwxyz", i, 1)}"
+            partitions = [{ mountpoint = d.mountpoint }]
+          }
+        ],
+        [
+          for d in var.minio_extra_disks : {
+            device     = d.device
+            partitions = [{ mountpoint = d.mountpoint }]
+          }
+        ]
+      )
     }
   }
 
-  # On Talos, separately-mounted disks under /var are NOT visible to the kubelet
-  # (and therefore to hostPath/Longhorn) unless bind-mounted in. Bind each data
-  # disk mountpoint into the kubelet.
-  kubelet_mounts_patch = length(var.worker_data_disks) == 0 ? {} : {
+  # Bind-mount every data-disk path into kubelet so hostPath volumes and
+  # Longhorn can reach them under /var.
+  kubelet_mounts_patch = (length(var.worker_data_disks) + length(var.minio_extra_disks)) == 0 ? {} : {
     machine = {
       kubelet = {
-        extraMounts = [
-          for d in var.worker_data_disks : {
-            destination = d.mountpoint
-            type        = "bind"
-            source      = d.mountpoint
-            options     = ["bind", "rshared", "rw"]
-          }
-        ]
+        extraMounts = concat(
+          [
+            for d in var.worker_data_disks : {
+              destination = d.mountpoint
+              type        = "bind"
+              source      = d.mountpoint
+              options     = ["bind", "rshared", "rw"]
+            }
+          ],
+          [
+            for d in var.minio_extra_disks : {
+              destination = d.mountpoint
+              type        = "bind"
+              source      = d.mountpoint
+              options     = ["bind", "rshared", "rw"]
+            }
+          ]
+        )
       }
     }
   }
@@ -111,8 +129,8 @@ data "talos_machine_configuration" "worker" {
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
     yamlencode(local.time_patch),
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
-    length(var.worker_data_disks) > 0 ? yamlencode(local.worker_disks_patch) : "",
-    length(var.worker_data_disks) > 0 ? yamlencode(local.kubelet_mounts_patch) : "",
+    (length(var.worker_data_disks) + length(var.minio_extra_disks)) > 0 ? yamlencode(local.worker_disks_patch) : "",
+    (length(var.worker_data_disks) + length(var.minio_extra_disks)) > 0 ? yamlencode(local.kubelet_mounts_patch) : "",
   ])
 }
 

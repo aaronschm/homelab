@@ -77,3 +77,31 @@ variable "ntp_server" {
   type    = string
   default = "10.10.20.2"
 }
+
+# Raw-passthrough drives for the MinIO gamma pool. These are attached to the
+# Proxmox host via disk-by-id passthrough (qm set VMID --scsiN /dev/disk/by-id/…)
+# and appear as sequential scsi devices in the VM after the worker_data_disks.
+#
+# With 2 worker_data_disks (sdb, sdc), the 6×18TB drives arrive as
+# /dev/sdd through /dev/sdi. Example tfvars entry:
+#
+#   minio_extra_disks = [
+#     { device = "/dev/sdd", mountpoint = "/var/mnt/minio1" },
+#     { device = "/dev/sde", mountpoint = "/var/mnt/minio2" },
+#     { device = "/dev/sdf", mountpoint = "/var/mnt/minio3" },
+#     { device = "/dev/sdg", mountpoint = "/var/mnt/minio4" },
+#     { device = "/dev/sdh", mountpoint = "/var/mnt/minio5" },
+#     { device = "/dev/sdi", mountpoint = "/var/mnt/minio6" },
+#   ]
+#
+# Talos will partition and format each device the first time it boots with this
+# config. If a drive already has data (e.g. an existing XFS pool), it will NOT
+# be reformatted — Talos detects the existing filesystem and mounts in-place.
+variable "minio_extra_disks" {
+  description = "Raw-passthrough MinIO drives. Specify device path and mountpoint explicitly."
+  type = list(object({
+    device     = string
+    mountpoint = string
+  }))
+  default = []
+}

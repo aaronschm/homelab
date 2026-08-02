@@ -194,7 +194,7 @@ metadata:
   namespace: immich
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: longhorn-encrypted
+  storageClassName: local-path   # ML model cache; large files, no encryption needed
   resources:
     requests:
       storage: 5Gi

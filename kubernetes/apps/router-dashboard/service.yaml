@@ -10,6 +10,6 @@ spec:
     - name: frontend
       port: 80
       targetPort: 80
-    - name: backend
-      port: 4000
-      targetPort: 4000
+    # Port 4000 (backend) is intentionally NOT exposed as a Service port.
+    # API traffic enters only via the nginx proxy on port 80, which enforces
+    # Authentik forward-auth at the Ingress level.

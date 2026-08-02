@@ -44,7 +44,7 @@ metadata:
   namespace: jellyfin
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: longhorn-encrypted # SSD for fast UI/metadata
+  storageClassName: local-path   # small config volume; local-path is sufficient
   resources:
     requests:
       storage: 10Gi

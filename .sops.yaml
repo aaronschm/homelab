@@ -1,4 +1,12 @@
 creation_rules:
+  # Ansible group_vars: encrypt known secret fields by key name.
+  # The community.sops vars plugin reads this transparently at playbook run time.
+  - path_regex: ansible/group_vars/all\.sops\.ya?ml$
+    encrypted_regex: >-
+      ^(password|secret|pass|key|token|credential)$
+    age: "age1gnkmh0kwyds2ckzhe96cqjxg08llfgp8lkmxa3z9vgzd33s25pks0d00pp"
+
+  # Kubernetes secrets — encrypt entire data / stringData blocks.
   - path_regex: .*\.sops\.yaml$
     encrypted_regex: ^(data|stringData|password|secret|pass|key|env|tokens|secrets|token)$
     age: "age1gnkmh0kwyds2ckzhe96cqjxg08llfgp8lkmxa3z9vgzd33s25pks0d00pp"

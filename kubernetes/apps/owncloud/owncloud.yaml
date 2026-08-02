@@ -71,6 +71,23 @@ spec:
               value: "true"
             - name: OWNCLOUD_REDIS_HOST
               value: "owncloud-redis"
+            # S3 primary storage via MinIO — user files go to the gamma pool,
+            # not to the 20Gi Longhorn PVC (which holds only config/metadata).
+            - name: OWNCLOUD_OBJECTSTORE_ENABLED
+              value: "true"
+            - name: OWNCLOUD_OBJECTSTORE_CLASS
+              value: "OCA\\Files_Primary_S3\\S3Storage"
+            - name: OWNCLOUD_OBJECTSTORE_BUCKET
+              value: "owncloud"
+            - name: OWNCLOUD_OBJECTSTORE_VERSION
+              value: "2006-03-01"
+            - name: OWNCLOUD_OBJECTSTORE_PATHSTYLE
+              value: "true"
+            - name: OWNCLOUD_OBJECTSTORE_ENDPOINT
+              value: "http://minio.minio.svc:9000"
+            # OWNCLOUD_OBJECTSTORE_KEY and OWNCLOUD_OBJECTSTORE_SECRET must be
+            # added to owncloud-secret (SOPS-encrypted). They should match a
+            # dedicated MinIO service account created for ownCloud.
           ports:
             - containerPort: 8080
               name: http

@@ -1,24 +1,19 @@
-# Single-instance MinIO (S3) for the homelab — interim storage on the 'alpha'
-# pool via local-path. The pods that consume MinIO only see the S3 endpoint
-# (minio.minio.svc:9000), so when the 6x18TB gamma drives arrive you can swap to
-# a distributed MinIO without touching app manifests.
+# Distributed MinIO on 6×18TB drives passed through to the worker VM.
+# Drives appear as /dev/sdd…/dev/sdi in the VM (scsi3…scsi8); Talos mounts
+# them at /var/mnt/minio1…6 (see infrastructure/terraform/talos/variables.tf).
+#
+# Single-server 6-drive erasure coding: MinIO uses EC:3 (3 data + 3 parity) by
+# default on 6 drives → 54 TB usable from 108 TB raw. Update MINIO_VOLUMES if
+# you change the number of drives.
+#
+# Data migration from the old alpha pool:
+#   1. Keep minio-data PVC alive until all buckets are rsynced.
+#   2. Use `mc mirror minio-alpha/bucket minio-gamma/bucket` to copy each bucket.
+#   3. Update app configs to point to the gamma endpoint, then delete the PVC.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: minio
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: minio-data
-  namespace: minio
-spec:
-  accessModes: ["ReadWriteOnce"]
-  storageClassName: local-path
-  resources:
-    requests:
-      # local-path does not enforce quota; the PV uses whatever /var/mnt/alpha has.
-      storage: 500Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -39,10 +34,22 @@ spec:
       labels:
         app: minio
     spec:
+      # Schedule exclusively on the worker node that owns the passthrough drives.
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
       containers:
         - name: minio
           image: minio/minio:RELEASE.2025-04-08T15-41-24Z
-          args: ["server", "/data", "--console-address", ":9001"]
+          args:
+            - server
+            - /var/mnt/minio1
+            - /var/mnt/minio2
+            - /var/mnt/minio3
+            - /var/mnt/minio4
+            - /var/mnt/minio5
+            - /var/mnt/minio6
+            - --console-address
+            - ":9001"
           envFrom:
             - secretRef:
                 name: minio-root
@@ -58,12 +65,43 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 15
           volumeMounts:
-            - name: data
-              mountPath: /data
+            - name: minio-drive-1
+              mountPath: /var/mnt/minio1
+            - name: minio-drive-2
+              mountPath: /var/mnt/minio2
+            - name: minio-drive-3
+              mountPath: /var/mnt/minio3
+            - name: minio-drive-4
+              mountPath: /var/mnt/minio4
+            - name: minio-drive-5
+              mountPath: /var/mnt/minio5
+            - name: minio-drive-6
+              mountPath: /var/mnt/minio6
       volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: minio-data
+        - name: minio-drive-1
+          hostPath:
+            path: /var/mnt/minio1
+            type: Directory
+        - name: minio-drive-2
+          hostPath:
+            path: /var/mnt/minio2
+            type: Directory
+        - name: minio-drive-3
+          hostPath:
+            path: /var/mnt/minio3
+            type: Directory
+        - name: minio-drive-4
+          hostPath:
+            path: /var/mnt/minio4
+            type: Directory
+        - name: minio-drive-5
+          hostPath:
+            path: /var/mnt/minio5
+            type: Directory
+        - name: minio-drive-6
+          hostPath:
+            path: /var/mnt/minio6
+            type: Directory
 ---
 apiVersion: v1
 kind: Service

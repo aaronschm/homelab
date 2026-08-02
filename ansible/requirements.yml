@@ -2,3 +2,4 @@
 collections:
   - name: ansible.netcommon
   - name: community.routeros
+  - name: community.sops      # transparent SOPS decryption for group_vars

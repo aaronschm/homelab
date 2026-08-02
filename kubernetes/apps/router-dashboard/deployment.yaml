@@ -16,7 +16,10 @@ spec:
       containers:
         - name: backend
           image: ghcr.io/aaronschm/router-dashboard-backend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
+          env:
+            - name: ALLOWED_ORIGIN
+              value: "https://router.isarcloud.eu"
           ports:
             - containerPort: 4000
           env:
@@ -30,7 +33,7 @@ spec:
               mountPath: /app/data
         - name: frontend
           image: ghcr.io/aaronschm/router-dashboard-frontend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
       volumes:
