@@ -1,0 +1,12 @@
+# Pre-create longhorn-system namespace with privileged PodSecurity so that
+# Longhorn DaemonSets (which use hostPath and privileged containers) are allowed.
+# Without this, the namespace would default to "baseline" and all Longhorn
+# node-manager pods would be rejected with PodSecurity violations.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: longhorn-system
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
+    pod-security.kubernetes.io/audit: privileged

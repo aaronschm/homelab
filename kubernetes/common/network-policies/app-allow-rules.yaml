@@ -39,6 +39,24 @@ spec:
       ports:
         - port: 9000
         - port: 9001
+---
+# Allow pods within minio namespace (e.g. bucket-setup job) to reach MinIO API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: minio
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector: {}
+      ports:
+        - port: 9000
+          protocol: TCP
+        - port: 9001
+          protocol: TCP
 
 # ── owncloud ─────────────────────────────────────────────────────────────────
 ---
