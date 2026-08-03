@@ -4,6 +4,7 @@
   become: yes
   vars:
     traefik_version: "3.0.4"
+    traefik_acme_email: "business@aaronschm.de"
   tasks:
     - name: Ensure required directories exist
       file:
@@ -13,6 +14,8 @@
       loop:
         - /etc/traefik
         - /etc/traefik/dynamic
+        - /etc/traefik/ssl
+        - /var/log/traefik
         - /opt/traefik
 
     - name: Download Traefik binary
@@ -22,11 +25,25 @@
         remote_src: yes
         creates: /opt/traefik/traefik
 
+    - name: Check installed Traefik launcher path
+      stat:
+        path: /usr/local/bin/traefik
+      register: traefik_launcher_stat
+
+    - name: Remove conflicting Traefik binary before linking
+      file:
+        path: /usr/local/bin/traefik
+        state: absent
+      when:
+        - traefik_launcher_stat.stat.exists
+        - not traefik_launcher_stat.stat.islnk
+
     - name: Create symlink
       file:
         src: /opt/traefik/traefik
         dest: /usr/local/bin/traefik
         state: link
+        force: true
 
     - name: Create static configuration
       copy:
@@ -58,14 +75,14 @@
           certificatesResolvers:
             letsencrypt:
               acme:
-                email: "admin@yourdomain.com" # TODO: Change this to your email!
-                storage: "/etc/traefik/acme.json"
+                email: "{{ traefik_acme_email }}"
+                storage: "/etc/traefik/ssl/acme.json"
                 httpChallenge:
                   entryPoint: web
 
     - name: Ensure acme.json exists with correct permissions
       file:
-        path: /etc/traefik/acme.json
+        path: /etc/traefik/ssl/acme.json
         state: touch
         mode: '0600'
 
@@ -86,7 +103,7 @@
           PrivateDevices=false
           ProtectHome=true
           ProtectSystem=full
-          ReadWritePaths=/etc/traefik
+          ReadWritePaths=/etc/traefik /var/log/traefik
           CapabilityBoundingSet=CAP_NET_BIND_SERVICE
           AmbientCapabilities=CAP_NET_BIND_SERVICE
           NoNewPrivileges=true
@@ -109,3 +126,8 @@
         group: root
         mode: '0644'
         directory_mode: '0755'
+
+    - name: Remove stale conf.d rules from previous Traefik layout
+      file:
+        path: /etc/traefik/conf.d
+        state: absent

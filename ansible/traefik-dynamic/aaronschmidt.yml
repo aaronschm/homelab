@@ -1,0 +1,65 @@
+http:
+  routers:
+    frontend:
+      rule: "Host(`aaronschmidt.de`)"
+      entryPoints: ["websecure"]
+      tls:
+        certResolver: letsencrypt
+      service: website-svc
+
+    code:
+      rule: "Host(`aaronschmidt.de`) && PathPrefix(`/apps/code`)"
+      entryPoints: ["websecure"]
+      tls:
+        certResolver: letsencrypt
+      middlewares: ["add-trailing-slash", "authentik-forward-auth", "strip-code", "frame-security"]
+      service: code-svc
+
+    gitea:
+      rule: "Host(`aaronschmidt.de`) && PathPrefix(`/git`)"
+      entryPoints: ["websecure"]
+      tls:
+        certResolver: letsencrypt
+      middlewares: ["add-trailing-slash", "authentik-forward-auth"]
+      service: gitea-svc
+
+  middlewares:
+    add-trailing-slash:
+      redirectRegex:
+        regex: "^(https?://[^/]+(/git|/apps/code))$"
+        replacement: "${1}/"
+        permanent: true
+
+    authentik-forward-auth:
+      forwardAuth:
+        address: "http://10.10.20.54:9000/outpost.goauthentik.io/auth/traefik"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - authorization
+          - x-authentik-username
+
+    strip-code:
+      stripPrefix:
+        prefixes: ["/apps/code"]
+
+    frame-security:
+      headers:
+        frameDeny: false
+        customResponseHeaders:
+          Content-Security-Policy: "frame-ancestors 'self' https://aaronschmidt.de"
+
+  services:
+    website-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.90:80"
+
+    code-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.91:8680"
+
+    gitea-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.20.92:3000"

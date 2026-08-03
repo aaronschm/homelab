@@ -116,6 +116,32 @@ tasks:
       - terraform init -input=false
       - terraform apply -auto-approve
 
+  proxy:
+    desc: "Stage 1.5 - Configure Traefik edge proxy and dynamic routes"
+    dir: "{{.ANSIBLE_DIR}}"
+    preconditions:
+      - sh: command -v ansible-playbook >/dev/null 2>&1
+        msg: "Missing ansible-playbook in PATH."
+      - sh: command -v sops >/dev/null 2>&1
+        msg: "Missing sops in PATH. Run: task setup"
+      - sh: test -f ../{{.AGE_KEY}}
+        msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
+    cmds:
+      - SOPS_AGE_KEY_FILE=../{{.AGE_KEY}} ansible-playbook -i inventory.ini traefik.yml
+
+  forgejo:
+    desc: "Stage 1.6 - Configure Forgejo service LXC"
+    dir: "{{.ANSIBLE_DIR}}"
+    preconditions:
+      - sh: command -v ansible-playbook >/dev/null 2>&1
+        msg: "Missing ansible-playbook in PATH."
+      - sh: command -v sops >/dev/null 2>&1
+        msg: "Missing sops in PATH. Run: task setup"
+      - sh: test -f ../{{.AGE_KEY}}
+        msg: "Missing {{.AGE_KEY}}. Run: task secrets:init"
+    cmds:
+      - SOPS_AGE_KEY_FILE=../{{.AGE_KEY}} ansible-playbook -i inventory.ini forgejo.yml
+
   cluster:
     desc: "Stage 2 - Apply Talos config, bootstrap etcd, write kubeconfig"
     dir: "{{.TALOS_DIR}}"
@@ -199,10 +225,12 @@ tasks:
       - terraform -chdir={{.PROXMOX_DIR}} destroy -auto-approve
 
   all:
-    desc: "Full bring-up: firewall -> infra -> cluster -> gitops -> secrets"
+    desc: "Full bring-up: firewall -> infra -> proxy -> forgejo -> cluster -> gitops -> secrets"
     cmds:
       - task: firewall
       - task: infra
+      - task: proxy
+      - task: forgejo
       - task: cluster
       - task: gitops
       - task: secrets:apply

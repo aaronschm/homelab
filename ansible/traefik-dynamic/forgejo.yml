@@ -1,17 +1,19 @@
 http:
   routers:
-    forgejo-native:
+    forgejo:
       rule: "Host(`git.isarcloud.eu`)"
       service: "forgejo-svc"
-      entryPoints: ["websecure"]
-      tls:
-        certResolver: letsencrypt
-    # SSO-protected endpoint. Keep native endpoint above as a break-glass fallback.
-    forgejo-authentik:
-      rule: "Host(`git-auth.isarcloud.eu`)"
-      service: "forgejo-svc"
+      priority: 100
       entryPoints: ["websecure"]
       middlewares: ["authentik-forward-auth"]
+      tls:
+        certResolver: letsencrypt
+    # Break-glass native login endpoint.
+    forgejo-native:
+      rule: "Host(`git-native.isarcloud.eu`)"
+      service: "forgejo-svc"
+      priority: 100
+      entryPoints: ["websecure"]
       tls:
         certResolver: letsencrypt
   middlewares:
