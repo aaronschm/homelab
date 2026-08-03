@@ -1,8 +1,13 @@
-# Longhorn — the cluster's DEFAULT StorageClass, installed via Helm by Argo CD.
+# Longhorn — the cluster's DEFAULT StorageClass, installed via rendered Helm manifests.
 # Volumes live on the beta SSD at /var/mnt/longhorn (mounted by Talos). Single
 # worker => 1 replica. Backups go to MinIO (s3://longhorn-backups) on a schedule
-# (see backup-recurringjob.yaml); replicate that bucket off-site to your friend's
-# MinIO for an off-host copy.
+# (see backup-recurringjob.yaml); replicate that bucket off-site for an off-host copy.
+#
+# To update Longhorn: helm pull longhorn/longhorn --version X.Y.Z
+# Then: helm template longhorn longhorn-X.Y.Z.tgz --namespace longhorn-system \
+#   --set defaultSettings.defaultDataPath=/var/mnt/longhorn \
+#   --set defaultSettings.defaultReplicaCount=1 \
+#   > kubernetes/platform/longhorn/rendered/longhorn-rendered.yaml
 #
 # Requires the Talos schematic with iscsi-tools + util-linux-tools (already set
 # in terraform.tfvars.example).
@@ -18,30 +23,11 @@ metadata:
 spec:
   project: default
   source:
-    # Mirrored to local Forgejo OCI registry — cluster has no direct internet access.
-    # Re-mirror: helm pull longhorn/longhorn --version 1.12.0 && helm push longhorn-1.12.0.tgz oci://10.10.20.100:3000/aaron --plain-http
-    repoURL: oci://10.10.20.100:3000/aaron
-    chart: longhorn
-    targetRevision: 1.12.0
-    helm:
-      values: |
-        defaultSettings:
-          # Talos mounts the beta Longhorn disk here.
-          defaultDataPath: /var/mnt/longhorn
-          # Single worker: 1 replica (more would just duplicate on the same node).
-          defaultReplicaCount: 1
-          # Back up to the in-cluster MinIO (S3). Bucket must exist (minio creates it).
-          backupTarget: s3://longhorn-backups@us-east-1/
-          backupTargetCredentialSecret: longhorn-backup-credentials
-        persistence:
-          # The encrypted class (longhorn-encrypted-storageclass.yaml) is the
-          # cluster default. Keep the chart's plain 'longhorn' class available
-          # but NOT default.
-          defaultClass: false
-          defaultClassReplicaCount: 1
-          reclaimPolicy: Delete
-        longhornUI:
-          replicas: 1
+    repoURL: http://10.10.20.100:3000/aaron/homelab.git
+    targetRevision: main
+    path: kubernetes/platform/longhorn/rendered
+    directory:
+      recurse: false
   destination:
     server: https://kubernetes.default.svc
     namespace: longhorn-system
