@@ -78,11 +78,23 @@
         mode: "0644"
       notify: Restart Zot
 
+    - name: Install Zot nginx proxy config
+      ansible.builtin.copy:
+        src: files/zot-nginx.conf
+        dest: /etc/zot/nginx.conf
+        mode: "0644"
+      notify: Restart Zot
+
     - name: Install Zot compose file
       ansible.builtin.copy:
         src: files/zot-compose.yml
         dest: /etc/zot/compose.yml
         mode: "0644"
+
+    - name: Pull nginx:alpine for registry proxy (already cached locally)
+      ansible.builtin.command:
+        cmd: docker pull nginx:alpine
+      changed_when: false
 
     - name: Start Zot
       ansible.builtin.command:

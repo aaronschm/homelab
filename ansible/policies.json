@@ -1119,7 +1119,7 @@
         "create_allow_respond": true,
         "destination": {
             "ips": [
-                "10.10.20.50"
+                "10.10.24.10"
             ],
             "match_opposite_ips": false,
             "match_opposite_ports": false,
@@ -1160,7 +1160,7 @@
         "create_allow_respond": true,
         "destination": {
             "ips": [
-                "10.10.20.50"
+                "10.10.24.10"
             ],
             "match_opposite_ips": false,
             "match_opposite_ports": false,

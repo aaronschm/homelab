@@ -314,14 +314,7 @@ kind: Ingress
 metadata:
   name: legal
   namespace: legal
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    # Legal pages are public — NO Authentik forward-auth here.
 spec:
-  tls:
-    - hosts:
-        - legal.isarcloud.eu
-      secretName: legal-tls
   rules:
     - host: legal.isarcloud.eu
       http:

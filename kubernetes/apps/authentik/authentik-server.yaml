@@ -22,6 +22,9 @@ spec:
           envFrom:
             - secretRef:
                 name: authentik-env
+          env:
+            - name: AUTHENTIK_REDIS__HOST
+              value: redis-master.authentik.svc.cluster.local
           ports:
             - containerPort: 9000
               name: http
@@ -34,8 +37,6 @@ spec:
               mountPath: /templates
       volumes:
         - name: media
-          persistentVolumeClaim:
-            claimName: authentik-media
+          emptyDir: {}
         - name: templates
-          persistentVolumeClaim:
-            claimName: authentik-templates
+          emptyDir: {}

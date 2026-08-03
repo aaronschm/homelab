@@ -209,8 +209,9 @@ there, then run the same `task ...` commands from that host.
 
 - Traefik runs on `10.10.24.10` and loads dynamic routes from `ansible/traefik-dynamic/*.yml`.
 - Forgejo endpoints:
-  - `git.isarcloud.eu` → Authentik-protected route
-  - `git-native.isarcloud.eu` → native Forgejo login (break-glass)
+  - `git.isarcloud.eu` → native Forgejo login (primary)
+  - `git-auth.isarcloud.eu` → Authentik-protected route (optional SSO)
+  - `git-native.isarcloud.eu` → native Forgejo login (break-glass alias)
 - Let's Encrypt ACME (Traefik cert resolver) only works when each hostname has a
   public DNS `A/AAAA` record to your WAN endpoint and WAN `80/443` is forwarded
   to Traefik. Without this, Traefik falls back to the default self-signed cert.

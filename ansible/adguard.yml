@@ -4,6 +4,10 @@
   become: yes
   vars:
     adguard_version: "v0.107.52"
+    adguard_rewrite_target: "10.10.24.10"
+    adguard_config_candidates:
+      - /opt/adguardhome/conf/AdGuardHome.yaml
+      - /opt/AdGuardHome/AdGuardHome.yaml
   tasks:
     - name: Download AdGuard Home
       unarchive:
@@ -45,10 +49,39 @@
               name: AdGuard DNS filter
               id: 1
           user_rules:
-            - "||isarcloud.local^$dnsrewrite=10.10.24.10"
+            - "||*.isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }}"
+            - "||isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }}"
+
+    - name: Detect existing AdGuard config path
+      stat:
+        path: "{{ item }}"
+      loop: "{{ adguard_config_candidates }}"
+      register: adguard_config_stats
+
+    - name: Select AdGuard config path
+      set_fact:
+        adguard_config_path: "{{ (adguard_config_stats.results | selectattr('stat.exists') | map(attribute='stat.path') | list | first) | default('') }}"
+
+    - name: Update wildcard isarcloud rewrite target
+      replace:
+        path: "{{ adguard_config_path }}"
+        regexp: "(domain: '\\*\\.isarcloud\\.eu'\\n\\s+answer:)\\s+\\S+"
+        replace: "\\1 {{ adguard_rewrite_target }}"
+      when: adguard_config_path | length > 0
+
+    - name: Update apex isarcloud rewrite target
+      replace:
+        path: "{{ adguard_config_path }}"
+        regexp: "(domain: isarcloud\\.eu\\n\\s+answer:)\\s+\\S+"
+        replace: "\\1 {{ adguard_rewrite_target }}"
+      when: adguard_config_path | length > 0
 
     - name: Ensure AdGuard is started and enabled
       systemd:
-        name: AdGuardHome
+        name: "{{ item }}"
         state: started
         enabled: yes
+      loop:
+        - adguardhome
+        - AdGuardHome
+      failed_when: false

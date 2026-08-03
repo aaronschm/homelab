@@ -139,7 +139,8 @@ internal name resolution.
 
 - `*.isarcloud.eu` — public DNS → `10.10.24.10` (Traefik DMZ), then forwarded
   in-cluster via Kubernetes Ingress
-- Internal names resolve via AdGuard local DNS rewrites
+- Internal names resolve via AdGuard local DNS rewrites; keep `isarcloud.eu` and
+  `*.isarcloud.eu` rewrite answers aligned to `10.10.24.10` after proxy migrations.
 - For trusted browser TLS (Let's Encrypt), each hostname must exist in public DNS
   and resolve to your WAN edge where ports 80/443 are forwarded to `10.10.24.10`.
   Otherwise Traefik serves its default self-signed certificate.

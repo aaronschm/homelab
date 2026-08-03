@@ -3,12 +3,26 @@ services:
     image: ghcr.io/project-zot/zot-linux-amd64:v2.1.18
     container_name: zot
     restart: always
-    ports:
-      - "5000:5000"
+    # Zot v2.1.18 hangs on HEAD requests for manifests when no upstream is reachable.
+    # It is moved to port 5001 (internal only); nginx on port 5000 converts HEAD→GET
+    # for manifest paths so containerd image pulls work correctly from cache.
+    expose:
+      - "5001"
     volumes:
       - /etc/zot/config.json:/etc/zot/config.json:ro
       - zot-data:/var/lib/zot
     command: ["serve", "/etc/zot/config.json"]
+
+  registry-proxy:
+    image: nginx:alpine
+    container_name: registry-proxy
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - /etc/zot/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - zot
 
 volumes:
   zot-data:

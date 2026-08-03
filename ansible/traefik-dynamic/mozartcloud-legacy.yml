@@ -17,6 +17,9 @@ http:
         - websecure
       rule: "Host(`ha.mozartcloud.app`)"
       service: homeassistant
+      middlewares:
+        - https-headers
+        - homeassistant-proxy-compat
       tls:
         certResolver: letsencrypt
 
@@ -151,6 +154,11 @@ http:
       headers:
         customRequestHeaders:
           X-Forwarded-Proto: "https"
+    homeassistant-proxy-compat:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-For: ""
+          X-Real-Ip: ""
   services:
     pve:
       loadBalancer:

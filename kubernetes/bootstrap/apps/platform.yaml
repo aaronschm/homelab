@@ -14,7 +14,7 @@ spec:
     directory:
       include: "{**/*.yaml,**/*.yml}"
       recurse: true
-      exclude: "{**/*.example.yaml,**/*.sops.yaml,**/kustomization.yaml}"
+      exclude: "{**/*.example.yaml,**/*.sops.yaml,**/kustomization.yaml,**/traefik-controller/**}"
   destination:
     server: https://kubernetes.default.svc
     namespace: default

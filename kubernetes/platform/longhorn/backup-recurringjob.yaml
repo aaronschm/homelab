@@ -9,6 +9,9 @@ kind: RecurringJob
 metadata:
   name: backup-every-6h
   namespace: longhorn-system
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: "5"
 spec:
   cron: "0 */6 * * *"
   task: backup

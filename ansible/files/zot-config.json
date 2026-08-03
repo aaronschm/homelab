@@ -8,7 +8,7 @@
   },
   "http": {
     "address": "0.0.0.0",
-    "port": "5000"
+    "port": "5001"
   },
   "log": {
     "level": "info"
@@ -19,18 +19,28 @@
       "registries": [
         {
           "urls": ["https://registry-1.docker.io"],
-          "content": [{ "prefix": "docker/library/**" }],
+          "content": [
+            { "prefix": "library/**" },
+            { "prefix": "simplexchat/**" },
+            { "prefix": "rustdesk/**" },
+            { "prefix": "docker.io/**", "stripPrefix": true }
+          ],
           "onDemand": false,
-          "tlsVerify": true
+          "tlsVerify": true,
+          "pollInterval": "6h"
         },
         {
           "urls": ["https://ghcr.io"],
           "content": [
             { "prefix": "siderolabs/**" },
-            { "prefix": "dexidp/**" }
+            { "prefix": "dexidp/**" },
+            { "prefix": "goauthentik/**" },
+            { "prefix": "paperless-ngx/**" },
+            { "prefix": "ghcr.io/**", "stripPrefix": true }
           ],
           "onDemand": false,
-          "tlsVerify": true
+          "tlsVerify": true,
+          "pollInterval": "6h"
         },
         {
           "urls": ["https://registry.k8s.io"],
@@ -38,25 +48,33 @@
             { "prefix": "kube-*" },
             { "prefix": "etcd" },
             { "prefix": "pause" },
-            { "prefix": "coredns/**" }
+            { "prefix": "coredns/**" },
+            { "prefix": "registry.k8s.io/**", "stripPrefix": true }
           ],
           "onDemand": false,
-          "tlsVerify": true
+          "tlsVerify": true,
+          "pollInterval": "6h"
         },
         {
           "urls": ["https://quay.io"],
           "content": [
             { "prefix": "cilium/**" },
-            { "prefix": "argoproj/**" }
+            { "prefix": "argoproj/**" },
+            { "prefix": "quay.io/**", "stripPrefix": true }
           ],
           "onDemand": false,
-          "tlsVerify": true
+          "tlsVerify": true,
+          "pollInterval": "6h"
         },
         {
           "urls": ["https://public.ecr.aws"],
-          "content": [{ "prefix": "docker/library/**" }],
+          "content": [
+            { "prefix": "docker/library/**" },
+            { "prefix": "public.ecr.aws/**", "stripPrefix": true }
+          ],
           "onDemand": false,
-          "tlsVerify": true
+          "tlsVerify": true,
+          "pollInterval": "6h"
         }
       ]
     }

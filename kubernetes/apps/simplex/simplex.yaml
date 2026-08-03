@@ -22,28 +22,31 @@ spec:
         - name: smp-server
           image: simplexchat/smp-server:latest
           args: ["start"]
+          env:
+            - name: ADDR
+              value: "simplex.isarcloud.eu"
           ports:
             - containerPort: 5223
+              protocol: TCP
+            - containerPort: 443
               protocol: TCP
           volumeMounts:
             - name: data
               mountPath: /var/opt/simplex
+            - name: certs
+              mountPath: /certificates
+              readOnly: true
       volumes:
         - name: data
-          persistentVolumeClaim:
-            claimName: simplex-data
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: simplex-data
-  namespace: simplex
-spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: longhorn-encrypted
-  resources:
-    requests:
-      storage: 2Gi
+          emptyDir: {}
+        - name: certs
+          secret:
+            secretName: simplex-tls
+            items:
+              - key: tls.crt
+                path: simplex.isarcloud.eu.crt
+              - key: tls.key
+                path: simplex.isarcloud.eu.key
 ---
 apiVersion: v1
 kind: Service
@@ -56,6 +59,10 @@ spec:
     - name: smp
       port: 5223
       nodePort: 32223
+      protocol: TCP
+    - name: smp-https
+      port: 443
+      nodePort: 32444
       protocol: TCP
   selector:
     app: smp-server

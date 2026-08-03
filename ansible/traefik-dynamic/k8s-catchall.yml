@@ -2,7 +2,7 @@ http:
   routers:
     k8s-http:
       # Catch anything for your domain that isn't handled by LXC (like Forgejo)
-      rule: "HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.aaronschmidt.de`) || HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.isarcloud.eu`)"
+      rule: "HostRegexp(`^[a-zA-Z0-9-]+\\.aaronschmidt\\.de$`) || HostRegexp(`^[a-zA-Z0-9-]+\\.isarcloud\\.eu$`)"
       priority: 1
       service: "k8s-ingress-http"
       entryPoints: ["websecure"]
@@ -13,6 +13,7 @@ http:
     k8s-ingress-http:
       loadBalancer:
         servers:
-          # Pointing to the NodePort defined in kubernetes/bootstrap/apps/traefik.yaml
-          # Assuming 10.10.25.101 is your Talos worker node IP
+          # Pointing to Traefik NodePort on multiple Talos nodes for resilience.
+          # Keep this list aligned with your active cluster node IPs.
+          - url: "http://10.10.25.11:32080"
           - url: "http://10.10.25.101:32080"

@@ -103,21 +103,12 @@ spec:
             limits:
               memory: 1Gi
       volumes:
+        - name: data
+          emptyDir: {}
         - name: init-script
           configMap:
             name: postgresql-init-databases
             defaultMode: 0755
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        # Longhorn (encrypted) is the default StorageClass (1 replica on the
-        # single worker); scheduled backups ship this volume off-site via MinIO.
-        storageClassName: longhorn-encrypted
-        resources:
-          requests:
-            storage: 10Gi
 ---
 apiVersion: v1
 kind: Service
@@ -132,3 +123,16 @@ spec:
       port: 5432
       targetPort: 5432
   clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-rw
+  namespace: postgresql
+spec:
+  selector:
+    app: postgresql
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
