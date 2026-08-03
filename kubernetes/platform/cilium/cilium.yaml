@@ -29,6 +29,49 @@ spec:
         cni:
           exclusive: false
 
+        # Zot on-demand sync currently cannot serve some digest-pinned
+        # multi-arch references reliably; use tags to avoid bootstrap stalls.
+        image:
+          useDigest: false
+        certgen:
+          image:
+            useDigest: false
+        hubble:
+          relay:
+            image:
+              useDigest: false
+          ui:
+            frontend:
+              image:
+                useDigest: false
+            backend:
+              image:
+                useDigest: false
+        envoy:
+          image:
+            useDigest: false
+        operator:
+          image:
+            useDigest: false
+        securityContext:
+          capabilities:
+            ciliumAgent:
+              - CHOWN
+              - KILL
+              - NET_ADMIN
+              - NET_RAW
+              - IPC_LOCK
+              - SYS_ADMIN
+              - SYS_RESOURCE
+              - DAC_OVERRIDE
+              - FOWNER
+              - SETGID
+              - SETUID
+            cleanCiliumState:
+              - NET_ADMIN
+              - SYS_ADMIN
+              - SYS_RESOURCE
+
         # Point Cilium at the correct Kubernetes API endpoint (Talos).
         k8sServiceHost: "localhost"
         k8sServicePort: "7445"

@@ -19,38 +19,43 @@
       "registries": [
         {
           "urls": ["https://registry-1.docker.io"],
-          "content": [{ "prefix": "**" }],
-          "onDemand": true,
+          "content": [{ "prefix": "docker/library/**" }],
+          "onDemand": false,
           "tlsVerify": true
         },
         {
           "urls": ["https://ghcr.io"],
-          "content": [{ "prefix": "**" }],
-          "onDemand": true,
+          "content": [
+            { "prefix": "siderolabs/**" },
+            { "prefix": "dexidp/**" }
+          ],
+          "onDemand": false,
           "tlsVerify": true
         },
         {
           "urls": ["https://registry.k8s.io"],
-          "content": [{ "prefix": "**" }],
-          "onDemand": true,
-          "tlsVerify": true
-        },
-        {
-          "urls": ["https://gcr.io"],
-          "content": [{ "prefix": "**" }],
-          "onDemand": true,
+          "content": [
+            { "prefix": "kube-*" },
+            { "prefix": "etcd" },
+            { "prefix": "pause" },
+            { "prefix": "coredns/**" }
+          ],
+          "onDemand": false,
           "tlsVerify": true
         },
         {
           "urls": ["https://quay.io"],
-          "content": [{ "prefix": "**" }],
-          "onDemand": true,
+          "content": [
+            { "prefix": "cilium/**" },
+            { "prefix": "argoproj/**" }
+          ],
+          "onDemand": false,
           "tlsVerify": true
         },
         {
           "urls": ["https://public.ecr.aws"],
-          "content": [{ "prefix": "**" }],
-          "onDemand": true,
+          "content": [{ "prefix": "docker/library/**" }],
+          "onDemand": false,
           "tlsVerify": true
         }
       ]
