@@ -115,6 +115,17 @@ task all    # firewall → infra → proxy (Traefik) → forgejo → cluster →
 
 To edit any secret: `task secrets:edit -- path/to/file.sops.yaml`
 
+### About `_local/` (not pushed to git)
+
+`_local/` is intentionally git-ignored and never pushed to Forgejo/GitHub. It
+contains machine-local sensitive material such as:
+- `age.key` (SOPS decryption key)
+- router backup exports
+
+This is by design for security. To run automation without your desktop being on,
+use a dedicated always-on management host and place its own `_local/age.key`
+there, then run the same `task ...` commands from that host.
+
 ## Services
 
 | URL | Service | Status | Notes |
