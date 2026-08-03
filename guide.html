@@ -223,7 +223,7 @@
       <b>Run everything from your PC — replace the passwords with yours (single quotes!):</b><br/>
       <code>export MIKROTIK_AUTOMATION_PASSWORD='myAutomationPass' MIKROTIK_DASHBOARD_PASSWORD='myDashboardPass'</code><br/>
       <code>task all</code><br/>
-      <span class="faint">That one command runs: MikroTik firewall → Proxmox VMs/LXCs → Talos cluster → Argo CD → all Kubernetes secrets.</span>
+      <span class="faint">That one command runs: MikroTik firewall → Proxmox VMs/LXCs → Traefik proxy → Forgejo → Talos cluster → Argo CD → all Kubernetes secrets.</span>
     </div>
   </section>
 
@@ -294,6 +294,9 @@
     <div class="note">VLAN 25 nodes never touch the internet. They pull container images
       through the <b>Zot mirror</b> at <code>10.10.20.101:5000</code> on VLAN 20. Talos has no
       SSH and no package manager — minimal attack surface.</div>
+    <div class="note warn">TLS note: Traefik can only request Let's Encrypt certificates for hostnames
+      that exist in public DNS and resolve to your WAN edge (forwarding ports 80/443 to
+      <code>10.10.24.10</code>). If a record is missing, Traefik serves the default cert.</div>
 
     <h3>Firewall automation</h3>
     <p class="muted"><code>ansible/mikrotik.yml</code> configures both MikroTik devices:
@@ -301,7 +304,9 @@
        <b>CRS310</b> (<code>10.10.1.3</code>) is the PoE managed switch.
        Run <code>task firewall</code> to apply (requires <code>MIKROTIK_AUTOMATION_PASSWORD</code> and
        <code>MIKROTIK_DASHBOARD_PASSWORD</code> env vars). VLAN networks are created on the MikroTik;
-       Ansible manages firewall policies and managed users only.</p>
+       Ansible manages firewall policies and managed users only. DMZ allow-lists include
+       the Traefik backend ports for VLAN 20 services plus cluster NodePorts
+       (<code>32080/32443</code>).</p>
   </section>
 
   <!-- INVENTORY -->
@@ -387,10 +392,14 @@
       <div class="step"><div class="rail"><div class="dot">2</div><div class="bar"></div></div>
         <div class="content"><b>Infrastructure</b> <span class="cmd">task infra</span><p>Terraform creates the LXCs and Talos VMs and autostarts them in boot order (registry first).</p></div></div>
       <div class="step"><div class="rail"><div class="dot">3</div><div class="bar"></div></div>
-        <div class="content"><b>Cluster</b> <span class="cmd">task cluster</span><p>Terraform applies Talos machine configs, bootstraps etcd, and writes <code>kubeconfig</code> + <code>talosconfig</code>.</p></div></div>
+        <div class="content"><b>Edge proxy</b> <span class="cmd">task proxy</span><p>Applies Traefik static config + dynamic routes on VLAN 24 reverse proxy (cert resolver included).</p></div></div>
       <div class="step"><div class="rail"><div class="dot">4</div><div class="bar"></div></div>
-        <div class="content"><b>GitOps</b> <span class="cmd">task gitops</span><p>Installs Argo CD and applies the root app-of-apps. Argo then deploys Longhorn, MinIO and your pods automatically.</p></div></div>
+        <div class="content"><b>Forgejo</b> <span class="cmd">task forgejo</span><p>Ensures Forgejo compose stack is present before GitOps source sync.</p></div></div>
       <div class="step"><div class="rail"><div class="dot">5</div></div>
+        <div class="content"><b>Cluster</b> <span class="cmd">task cluster</span><p>Terraform applies Talos machine configs, bootstraps etcd, and writes <code>kubeconfig</code> + <code>talosconfig</code>.</p></div></div>
+      <div class="step"><div class="rail"><div class="dot">6</div><div class="bar"></div></div>
+        <div class="content"><b>GitOps</b> <span class="cmd">task gitops</span><p>Installs Argo CD and applies the root app-of-apps. Argo then deploys Longhorn, MinIO and your pods automatically.</p></div></div>
+      <div class="step"><div class="rail"><div class="dot">7</div></div>
         <div class="content"><b>Secrets</b> <span class="cmd">task secrets:apply</span><p>Applies the git-ignored Kubernetes secrets (MinIO root, Longhorn backup creds, PostgreSQL).</p></div></div>
     </div>
   </section>
@@ -723,7 +732,7 @@ task all</code></pre></div></details>
     <h3>3 · Bring-up order</h3>
     <div class="note ok">
       <code>export MIKROTIK_AUTOMATION_PASSWORD="…" MIKROTIK_DASHBOARD_PASSWORD="…"</code><br/>
-      <code>task all</code> — runs: firewall → infra → cluster → gitops → secrets:apply
+      <code>task all</code> — runs: firewall → infra → proxy → forgejo → cluster → gitops → secrets:apply
     </div>
     <p class="muted">After <code>task infra</code> creates the worker VM, run the <code>qm set</code>
       commands (in <code>terraform/proxmox/terraform.tfvars.example</code>) to attach the 6×18 TB drives

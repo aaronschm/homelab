@@ -138,10 +138,25 @@
                ( "src-address=" ~ src ~ " " if src else "" ) ~
                ( "dst-address=" ~ dst ~ " " if dst else "" ) ~
                ( "dst-port=" ~ ports ~ " " if ports else "" ) ~
+               "place-before=0 " ~
                "comment=\"" ~ rule.name ~ " (Ansible)\""
             ) %}
           {% endfor %}
           {{ cmds }}
+      tags: firewall
+
+    - name: Expand existing DMZ to Server allow-list ports for Traefik backends
+      community.routeros.command:
+        commands:
+          - /ip firewall filter set [find comment="DMZ to Server Ports"] dst-port=80,443,3000,3001,4533,8000,8006,8008,8080,8090,8123,8680,8686,9000 protocol=tcp
+      when: inventory_hostname == 'crs309'
+      tags: firewall
+
+    - name: Expand existing DMZ to Cluster allow-list ports for ingress NodePorts
+      community.routeros.command:
+        commands:
+          - /ip firewall filter set [find comment="DMZ to Cluster Ports"] dst-port=80,443,32080,32443,50000 protocol=tcp
+      when: inventory_hostname == 'crs309'
       tags: firewall
 
     - name: Clean up old Ansible NAT rules

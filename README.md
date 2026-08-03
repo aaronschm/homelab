@@ -87,7 +87,7 @@ cp infrastructure/terraform/talos/terraform.tfvars.example   infrastructure/terr
 # Use single quotes around passwords — double quotes break if the password contains ! or $
 export MIKROTIK_AUTOMATION_PASSWORD='yourAutomationPassword'   # for the Ansible-managed service account
 export MIKROTIK_DASHBOARD_PASSWORD='yourDashboardPassword'     # for network.isarcloud.eu login
-task all    # firewall (MikroTik) → infra (Proxmox) → cluster (Talos) → gitops (Argo CD) → secrets
+task all    # firewall → infra → proxy (Traefik) → forgejo → cluster → gitops → secrets
 ```
 
 ### Pre-flight checklist (before `task all`)
@@ -193,3 +193,13 @@ To edit any secret: `task secrets:edit -- path/to/file.sops.yaml`
 | Ingress | Traefik (DMZ LXC) | Terminates TLS; forwards to cluster via VLAN 24→25 rule |
 | Legal | `legal.isarcloud.eu` | GDPR/DSGVO: Datenschutzerklärung, AVV consent, deletion request |
 | No HA | 1 CP + 1 worker | Hardware budget; acceptable downtime; users notified via ToS |
+
+## Edge ingress and certificates
+
+- Traefik runs on `10.10.24.10` and loads dynamic routes from `ansible/traefik-dynamic/*.yml`.
+- Forgejo endpoints:
+  - `git.isarcloud.eu` → Authentik-protected route
+  - `git-native.isarcloud.eu` → native Forgejo login (break-glass)
+- Let's Encrypt ACME (Traefik cert resolver) only works when each hostname has a
+  public DNS `A/AAAA` record to your WAN endpoint and WAN `80/443` is forwarded
+  to Traefik. Without this, Traefik falls back to the default self-signed cert.

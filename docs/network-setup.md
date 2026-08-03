@@ -85,8 +85,15 @@ Applied via `task firewall` (`ansible/mikrotik.yml`).
 
 | Source | Destination | Port | Purpose |
 |--------|-------------|------|---------|
-| `10.10.24.10` (Traefik) | VLAN 25 | TCP 80, 443 | Forward HTTP/HTTPS to in-cluster Services |
+| `10.10.24.10` (Traefik) | VLAN 25 | TCP 80, 443, 32080, 32443 | Forward HTTP/HTTPS to in-cluster Services/NodePorts |
 | Internet | `10.10.24.10` | TCP 443 | Traefik TLS ingress (ACME certs) |
+
+### Ingress path (DMZ → Server VLAN backends)
+
+| Source | Destination | Port | Purpose |
+|--------|-------------|------|---------|
+| `10.10.24.10` (Traefik) | VLAN 20 | TCP 80,443,3000,3001,4533,8000,8006,8008,8080,8090,8123,8680,8686,9000 | Legacy LXC/VM backends, Forgejo, Authentik forward-auth |
+| `10.10.24.10` (Traefik) | `10.10.20.99` | UDP 53 | DMZ DNS queries to AdGuard |
 
 ### WAN rules
 
@@ -133,6 +140,9 @@ internal name resolution.
 - `*.isarcloud.eu` — public DNS → `10.10.24.10` (Traefik DMZ), then forwarded
   in-cluster via Kubernetes Ingress
 - Internal names resolve via AdGuard local DNS rewrites
+- For trusted browser TLS (Let's Encrypt), each hostname must exist in public DNS
+  and resolve to your WAN edge where ports 80/443 are forwarded to `10.10.24.10`.
+  Otherwise Traefik serves its default self-signed certificate.
 
 ## WireGuard VPN
 
@@ -164,4 +174,3 @@ kubectl rollout restart deployment/vaultwarden -n vaultwarden
 
 The URL change (`vault.mozartcloud.app` → `vault.isarcloud.eu`) requires users
 to update their Bitwarden client server URL setting.
-
