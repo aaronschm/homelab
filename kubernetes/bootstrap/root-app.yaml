@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/aaronschm/homelab.git
+    repoURL: http://10.10.20.100:3000/aaron/homelab.git
     targetRevision: main
     path: kubernetes/bootstrap/apps
   destination:
