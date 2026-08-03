@@ -15597,24 +15597,10 @@ rules:
   - apiGroups:
       - ""
     resources:
-      - nodes
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
+      - endpoints
       - services
     verbs:
       - get
-      - list
-      - watch
-  - apiGroups:
-      - discovery.k8s.io
-    resources:
-      - endpointslices
-    verbs:
       - list
       - watch
   - apiGroups:
@@ -15750,7 +15736,7 @@ spec:
       terminationGracePeriodSeconds: 60
       hostNetwork: false
       containers:
-      - image: docker.io/traefik:v3.2.2
+      - image: docker.io/traefik:v3.0.4
         imagePullPolicy: IfNotPresent
         name: traefik
         resources:
