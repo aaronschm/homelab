@@ -2,7 +2,7 @@ http:
   routers:
     k8s-http:
       # Catch anything for your domain that isn't handled by LXC (like Forgejo)
-      rule: "HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.aaronschmidt.de`, `{subdomain:[a-zA-Z0-9-]+}.isarcloud.eu`)"
+      rule: "HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.aaronschmidt.de`) || HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.isarcloud.eu`)"
       service: "k8s-ingress-http"
       entryPoints: ["websecure"]
       tls:
