@@ -12,6 +12,7 @@ spec:
     targetRevision: main
     path: kubernetes/platform
     directory:
+      include: "{**/*.yaml,**/*.yml}"
       recurse: true
       exclude: "{**/*.example.yaml,**/*.sops.yaml,**/kustomization.yaml}"
   destination:
