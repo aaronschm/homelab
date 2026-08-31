@@ -25,6 +25,12 @@ spec:
           env:
             - name: AUTHENTIK_REDIS__HOST
               value: redis-master.authentik.svc.cluster.local
+            - name: AUTHENTIK_HOST
+              value: "https://auth.isarcloud.eu"
+            - name: AUTHENTIK_HOST_BROWSER
+              value: "https://auth.isarcloud.eu"
+            - name: AUTHENTIK_COOKIE_DOMAIN
+              value: "isarcloud.eu"
           volumeMounts:
             - name: media
               mountPath: /media
