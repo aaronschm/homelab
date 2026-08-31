@@ -1,0 +1,155 @@
+# Routes for all *.isarcloud.eu services hosted in the K8s cluster.
+# Edge Traefik terminates TLS (Let's Encrypt) then proxies plain HTTP
+# to the cluster Traefik NodePort at 10.10.25.11:32080.
+#
+# PREREQUISITE: isarcloud.eu Cloudflare DNS records must be "DNS only"
+# (grey cloud, not proxied) for ACME HTTP-01 to work.
+# Alternatively configure dnsChallenge in traefik.yaml with CF API token.
+
+http:
+  routers:
+    argocd:
+      rule: "Host(`argocd.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    auth:
+      rule: "Host(`auth.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    docs:
+      rule: "Host(`docs.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    files:
+      rule: "Host(`files.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    vault:
+      rule: "Host(`vault.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    metrics:
+      rule: "Host(`metrics.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    photos:
+      rule: "Host(`photos.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    media:
+      rule: "Host(`media.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    matrix:
+      rule: "Host(`matrix.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    chat:
+      rule: "Host(`chat.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    legal:
+      rule: "Host(`legal.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    network:
+      rule: "Host(`network.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    requests:
+      rule: "Host(`requests.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    movies:
+      rule: "Host(`movies.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    tv:
+      rule: "Host(`tv.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    torrent:
+      rule: "Host(`torrent.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    pelican:
+      rule: "Host(`pelican.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    longhorn:
+      rule: "Host(`longhorn.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+    minio:
+      rule: "Host(`minio.isarcloud.eu`)"
+      entryPoints: ["websecure"]
+      service: cluster-proxy
+      middlewares: ["cluster-forward-proto"]
+      tls: { certResolver: "letsencrypt" }
+
+  middlewares:
+    cluster-forward-proto:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+
+  services:
+    cluster-proxy:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://10.10.25.11:32080"

@@ -10,3 +10,4 @@ resources:
   - authentik-worker.yaml
   - authentik-service.yaml
   - redis.yaml
+  - authentik-middleware.yaml

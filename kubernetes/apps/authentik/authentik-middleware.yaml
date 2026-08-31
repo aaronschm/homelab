@@ -1,0 +1,17 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  # Named "forward-auth" so the Ingress annotation "authentik-forward-auth@kubernetescrd"
+  # resolves correctly: Traefik parses that as namespace=authentik + name=forward-auth
+  name: forward-auth
+  namespace: authentik
+spec:
+  forwardAuth:
+    address: "http://authentik-service.authentik.svc.cluster.local/outpost.goauthentik.io/auth/traefik"
+    trustForwardHeader: true
+    authResponseHeaders:
+      - X-authentik-username
+      - X-authentik-email
+      - X-authentik-groups
+      - X-authentik-uid
+      - Authorization

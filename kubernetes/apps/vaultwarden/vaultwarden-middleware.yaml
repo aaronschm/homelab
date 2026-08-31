@@ -1,7 +1,9 @@
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: vaultwarden-headers
+  # Named "headers" so the Ingress annotation "vaultwarden-headers@kubernetescrd"
+  # resolves correctly: Traefik parses that as namespace=vaultwarden + name=headers
+  name: headers
   namespace: vaultwarden
 spec:
   headers:
