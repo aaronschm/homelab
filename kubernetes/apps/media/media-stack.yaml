@@ -40,7 +40,7 @@ spec:
     spec:
       containers:
         - name: overseerr
-          image: lscr.io/linuxserver/overseerr:latest
+          image: linuxserver/overseerr:latest
           env:
             - name: PUID
               value: "1000"
@@ -101,7 +101,7 @@ spec:
     spec:
       containers:
         - name: radarr
-          image: lscr.io/linuxserver/radarr:latest
+          image: linuxserver/radarr:latest
           env:
             - name: PUID
               value: "1000"
@@ -164,7 +164,7 @@ spec:
     spec:
       containers:
         - name: sonarr
-          image: lscr.io/linuxserver/sonarr:latest
+          image: linuxserver/sonarr:latest
           env:
             - name: PUID
               value: "1000"
@@ -230,7 +230,7 @@ spec:
     spec:
       containers:
         - name: qbittorrent
-          image: lscr.io/linuxserver/qbittorrent:latest
+          image: linuxserver/qbittorrent:latest
           env:
             - name: PUID
               value: "1000"
