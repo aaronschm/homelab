@@ -1,8 +1,7 @@
 # Rancher local-path-provisioner — a NON-default StorageClass used explicitly by
-# MinIO (storageClassName: local-path). Longhorn is the cluster default. PVs are
-# directories on the worker's alpha data disk, which Talos mounts (and bind-mounts
-# into the kubelet) at /var/mnt/alpha. Interim 'alpha' pool until the gamma MinIO
-# drives are installed. Pinned to v0.0.30.
+# pods that need hostPath-backed local storage. Longhorn is the cluster default.
+# PVs are directories stored within Talos's writable /var partition at
+# /var/local-path-provisioner. Pinned to v0.0.30.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -101,13 +100,13 @@ metadata:
   name: local-path-config
   namespace: local-path-storage
 data:
-  # Store PVs on the worker data disk mounted by Talos at /var/mnt/alpha.
+  # Store PVs in /var/local-path-provisioner (within Talos writable /var partition).
   config.json: |-
     {
       "nodePathMap": [
         {
           "node": "DEFAULT_PATH_FOR_NON_LISTED_NODES",
-          "paths": ["/var/mnt/alpha"]
+          "paths": ["/var/local-path-provisioner"]
         }
       ]
     }
@@ -132,5 +131,5 @@ data:
           effect: NoSchedule
       containers:
         - name: helper-pod
-          image: busybox
+          image: busybox:1.36
           imagePullPolicy: IfNotPresent
