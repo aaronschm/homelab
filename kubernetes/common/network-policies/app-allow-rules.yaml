@@ -215,6 +215,11 @@ spec:
   podSelector: {}
   policyTypes: [Egress]
   egress:
-    # Vaultwarden uses an embedded SQLite (longhorn PVC) — no DB egress needed.
-    # Allow SMTP for email notifications if configured.
+    # PostgreSQL for persistent storage
+    - ports: [{port: 5432}]
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgresql
+    # SMTP for email notifications
     - ports: [{port: 587}, {port: 465}]
