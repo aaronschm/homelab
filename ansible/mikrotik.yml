@@ -152,10 +152,10 @@
       when: inventory_hostname == 'crs309'
       tags: firewall
 
-    - name: Expand existing DMZ to Cluster allow-list ports for ingress NodePorts
+    - name: Expand existing DMZ to Cluster allow-list ports for ingress NodePorts and Longhorn services
       community.routeros.command:
         commands:
-          - /ip firewall filter set [find comment="DMZ to Cluster Ports"] dst-port=80,443,32080,32443,50000 protocol=tcp
+          - /ip firewall filter set [find comment="DMZ to Cluster Ports"] dst-port=80,443,32080,32443,9500,9502,9503,50000 protocol=tcp
       when: inventory_hostname == 'crs309'
       tags: firewall
 

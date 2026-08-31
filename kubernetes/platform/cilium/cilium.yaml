@@ -86,6 +86,16 @@ spec:
             ingress:
               enabled: false  # Expose via Argo CD app separately if needed
 
+        # Allow the host namespace (including kube-apiserver and control-plane
+        # daemons) to reach ClusterIP services such as the Longhorn admission
+        # webhook. This is required when the API server calls a service from its
+        # host network namespace.
+        hostServices:
+          enabled: true
+          protocols:
+            - tcp
+            - udp
+
         # Strict NetworkPolicy mode — deny by default when a policy exists.
         policyEnforcementMode: default
   destination:

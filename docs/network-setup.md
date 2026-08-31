@@ -85,7 +85,7 @@ Applied via `task firewall` (`ansible/mikrotik.yml`).
 
 | Source | Destination | Port | Purpose |
 |--------|-------------|------|---------|
-| `10.10.24.10` (Traefik) | VLAN 25 | TCP 80, 443, 32080, 32443 | Forward HTTP/HTTPS to in-cluster Services/NodePorts |
+| `10.10.24.10` (Traefik) | VLAN 25 | TCP 80, 443, 32080, 32443, 9500, 9502, 9503 | Forward HTTP/HTTPS + Longhorn control plane / admission webhooks |
 | Internet | `10.10.24.10` | TCP 443 | Traefik TLS ingress (ACME certs) |
 
 ### Ingress path (DMZ → Server VLAN backends)

@@ -42,6 +42,11 @@ spec:
                 secretKeyRef:
                   name: immich-secret
                   key: DB_DATABASE_NAME
+            # Use a subdirectory so that Longhorn's lost+found doesn't
+            # conflict with PostgreSQL initialization (it refuses to init
+            # if the directory is non-empty).
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           ports:
             - containerPort: 5432
           volumeMounts:

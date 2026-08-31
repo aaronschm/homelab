@@ -104,6 +104,22 @@ locals {
       }
     }
   }
+  # In a dark VLAN with no upstream internet access, Talos must not try to reach
+  # `discovery.talos.dev` during bootstrap. The cluster is single-node / fixed and
+  # we intentionally disable external discovery so the control-plane can boot and
+  # the API can come up.
+  discovery_patch = {
+    cluster = {
+      discovery = {
+        enabled = false
+        registries = {
+          kubernetes = { disabled = true }
+          service    = { disabled = true }
+        }
+      }
+    }
+  }
+
   # Cilium is installed as a Helm chart (see kubernetes/platform/cilium/).
   # Talos must be told NOT to install the default Flannel CNI so we get a clean
   # slate. This also disables kube-proxy (Cilium replaces it in eBPF mode).
@@ -135,6 +151,7 @@ data "talos_machine_configuration" "controlplane" {
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
     yamlencode(local.time_patch),
     yamlencode(local.dns_patch),
+    yamlencode(local.discovery_patch),
     yamlencode(local.cilium_patch),
     local.use_vip ? yamlencode(local.vip_patch) : "",
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
@@ -153,6 +170,7 @@ data "talos_machine_configuration" "worker" {
     yamlencode({ machine = { install = { disk = var.install_disk } } }),
     yamlencode(local.time_patch),
     yamlencode(local.dns_patch),
+    yamlencode(local.discovery_patch),
     yamlencode(local.cilium_patch),
     var.registry_mirror_endpoint != "" ? yamlencode(local.registry_patch) : "",
     (length(var.worker_data_disks) + length(var.minio_extra_disks)) > 0 ? yamlencode(local.worker_disks_patch) : "",

@@ -223,7 +223,7 @@
       <b>Run everything from your PC — replace the passwords with yours (single quotes!):</b><br/>
       <code>export MIKROTIK_AUTOMATION_PASSWORD='myAutomationPass' MIKROTIK_DASHBOARD_PASSWORD='myDashboardPass'</code><br/>
       <code>task all</code><br/>
-      <span class="faint">That one command runs: MikroTik firewall → Proxmox VMs/LXCs → Traefik proxy → Forgejo → Talos cluster → Argo CD → all Kubernetes secrets.</span>
+      <span class="faint">That one command runs: MikroTik firewall → Proxmox VMs/LXCs → Traefik proxy → Forgejo → Talos cluster → Argo CD → all Kubernetes secrets. It also keeps the Longhorn webhook and nodeports reachable across the DMZ/cluster boundary.</span>
     </div>
   </section>
 
