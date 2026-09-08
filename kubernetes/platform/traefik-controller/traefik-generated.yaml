@@ -15735,6 +15735,10 @@ spec:
       automountServiceAccountToken: true
       terminationGracePeriodSeconds: 60
       hostNetwork: false
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
       containers:
       - image: docker.io/traefik:v3.0.4
         imagePullPolicy: IfNotPresent
