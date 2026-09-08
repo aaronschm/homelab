@@ -163,7 +163,7 @@ metadata:
   namespace: immich
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: s3-csi
+  storageClassName: longhorn-encrypted
   resources:
     requests:
       storage: 100Gi
