@@ -47,7 +47,7 @@
 
     - name: Create static configuration
       copy:
-        dest: /etc/traefik/traefik.yaml
+        dest: /etc/traefik/traefik.yml
         content: |
           entryPoints:
             web:
@@ -62,7 +62,7 @@
           
           providers:
             file:
-              directory: "/etc/traefik/conf.d"
+              directory: "/etc/traefik/dynamic"
               watch: true
           
           api:
@@ -121,13 +121,13 @@
     - name: "Sync local dynamic config folder to Traefik LXC"
       copy:
         src: traefik-dynamic/
-        dest: /etc/traefik/conf.d/
+        dest: /etc/traefik/dynamic/
         owner: root
         group: root
         mode: '0644'
         directory_mode: '0755'
 
-    - name: Remove stale dynamic/ dir from previous Traefik layout
+    - name: Remove stale conf.d dir from previous Traefik layout
       file:
-        path: /etc/traefik/dynamic
+        path: /etc/traefik/conf.d
         state: absent
