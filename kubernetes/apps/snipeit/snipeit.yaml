@@ -1,0 +1,240 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: snipeit
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: snipeit-db
+  namespace: snipeit
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: snipeit-db
+  template:
+    metadata:
+      labels:
+        app: snipeit-db
+    spec:
+      containers:
+        - name: mariadb
+          image: mariadb:11.4.7
+          envFrom:
+            - secretRef:
+                name: snipeit-secret
+          env:
+            - name: MYSQL_DATABASE
+              value: snipeit
+            - name: MYSQL_USER
+              value: snipeit
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: snipeit-secret
+                  key: DB_PASSWORD
+          ports:
+            - containerPort: 3306
+              name: mysql
+          readinessProbe:
+            exec:
+              command:
+                - healthcheck.sh
+                - --connect
+                - --innodb_initialized
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - healthcheck.sh
+                - --connect
+                - --innodb_initialized
+            initialDelaySeconds: 45
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: snipeit-db-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: snipeit-db-data
+  namespace: snipeit
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-encrypted
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: snipeit-db
+  namespace: snipeit
+spec:
+  ports:
+    - port: 3306
+      targetPort: mysql
+  selector:
+    app: snipeit-db
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: snipeit
+  namespace: snipeit
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: snipeit
+  template:
+    metadata:
+      labels:
+        app: snipeit
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: snipeit
+          image: snipe/snipe-it:v8.7.2
+          envFrom:
+            - secretRef:
+                name: snipeit-secret
+          env:
+            - name: APP_ENV
+              value: production
+            - name: APP_DEBUG
+              value: "false"
+            - name: APP_URL
+              value: "https://mpb.dlrg.isarcloud.eu"
+            - name: APP_TIMEZONE
+              value: "Europe/Berlin"
+            - name: APP_LOCALE
+              value: "de-DE"
+            - name: MAX_RESULTS
+              value: "500"
+            - name: DB_CONNECTION
+              value: mariadb
+            - name: DB_HOST
+              value: snipeit-db
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_DATABASE
+              value: snipeit
+            - name: DB_USERNAME
+              value: snipeit
+            - name: DB_CHARSET
+              value: utf8mb4
+            - name: DB_COLLATION
+              value: utf8mb4_unicode_ci
+            - name: DB_DUMP_PATH
+              value: /usr/bin
+            - name: DB_DUMP_SKIP_SSL
+              value: "false"
+            - name: DB_DUMP_SINGLE_TRANSACTION
+              value: "false"
+            - name: PRIVATE_FILESYSTEM_DISK
+              value: local
+            - name: PUBLIC_FILESYSTEM_DISK
+              value: local_public
+            - name: MAIL_MAILER
+              value: log
+            - name: ALLOW_BACKUP_DELETE
+              value: "false"
+            - name: ALLOW_DATA_PURGE
+              value: "false"
+            - name: IMAGE_LIB
+              value: gd
+            - name: SECURE_COOKIES
+              value: "true"
+            - name: APP_FORCE_TLS
+              value: "true"
+            - name: APP_TRUSTED_PROXIES
+              value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+            - name: CACHE_DRIVER
+              value: file
+            - name: SESSION_DRIVER
+              value: file
+            - name: QUEUE_CONNECTION
+              value: sync
+            - name: LOG_CHANNEL
+              value: stderr
+          ports:
+            - containerPort: 80
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/snipeit
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: snipeit-storage
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: snipeit-storage
+  namespace: snipeit
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-encrypted
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: snipeit
+  namespace: snipeit
+spec:
+  ports:
+    - port: 80
+      targetPort: http
+  selector:
+    app: snipeit
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: snipeit
+  namespace: snipeit
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: mpb.dlrg.isarcloud.eu
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: snipeit
+                port:
+                  number: 80
