@@ -71,23 +71,11 @@ spec:
               value: "true"
             - name: OWNCLOUD_REDIS_HOST
               value: "owncloud-redis"
-            # S3 primary storage via MinIO — user files go to the gamma pool,
-            # not to the 20Gi Longhorn PVC (which holds only config/metadata).
+            # Keep initial bring-up self-contained on Longhorn. MinIO-backed
+            # primary storage can be re-enabled later once the worker storage
+            # pool is rebuilt and stable.
             - name: OWNCLOUD_OBJECTSTORE_ENABLED
-              value: "true"
-            - name: OWNCLOUD_OBJECTSTORE_CLASS
-              value: "OCA\\Files_Primary_S3\\S3Storage"
-            - name: OWNCLOUD_OBJECTSTORE_BUCKET
-              value: "owncloud"
-            - name: OWNCLOUD_OBJECTSTORE_VERSION
-              value: "2006-03-01"
-            - name: OWNCLOUD_OBJECTSTORE_PATHSTYLE
-              value: "true"
-            - name: OWNCLOUD_OBJECTSTORE_ENDPOINT
-              value: "http://minio.minio.svc:9000"
-            # OWNCLOUD_OBJECTSTORE_KEY and OWNCLOUD_OBJECTSTORE_SECRET must be
-            # added to owncloud-secret (SOPS-encrypted). They should match a
-            # dedicated MinIO service account created for ownCloud.
+              value: "false"
           ports:
             - containerPort: 8080
               name: http
@@ -106,10 +94,10 @@ metadata:
   namespace: owncloud
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: longhorn-encrypted # For SSD caching/metadata, user files go to S3
+  storageClassName: longhorn-encrypted
   resources:
     requests:
-      storage: 20Gi
+      storage: 100Gi
 ---
 apiVersion: v1
 kind: Service
@@ -130,7 +118,7 @@ metadata:
   namespace: owncloud
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    traefik.ingress.kubernetes.io/router.middlewares: authentik-forward-auth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
   rules:
     - host: files.isarcloud.eu
