@@ -200,7 +200,7 @@ metadata:
   namespace: snipeit
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: longhorn-encrypted
+  storageClassName: local-path
   resources:
     requests:
       storage: 20Gi
