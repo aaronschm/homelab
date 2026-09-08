@@ -3,14 +3,16 @@ kind: Namespace
 metadata:
   name: immich
 ---
-# Immich strictly requires PostgreSQL with the pgvector extension.
-# We run a dedicated DB for it here.
+# Immich needs a supported vector extension; we use pgvector explicitly here
+# to avoid drift with alternate postgres images/extensions.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: immich-db
   namespace: immich
 spec:
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:
@@ -22,7 +24,7 @@ spec:
     spec:
       containers:
         - name: database
-          image: tensorchord/pgvecto-rs:pg14-v0.2.0
+          image: pgvector/pgvector:pg14
           envFrom:
             - secretRef:
                 name: immich-secret
@@ -47,6 +49,8 @@ spec:
             # if the directory is non-empty).
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_INITDB_ARGS
+              value: --data-checksums
           ports:
             - containerPort: 5432
           volumeMounts:
@@ -120,6 +124,8 @@ metadata:
   name: immich-server
   namespace: immich
 spec:
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:
@@ -138,6 +144,8 @@ spec:
           env:
             - name: REDIS_HOSTNAME
               value: "immich-redis"
+            - name: DB_VECTOR_EXTENSION
+              value: pgvector
           ports:
             - containerPort: 2283
           volumeMounts:
@@ -146,7 +154,6 @@ spec:
       volumes:
         - name: upload
           persistentVolumeClaim:
-            # Note: This is where we will eventually attach the S3-CSI bridge!
             claimName: immich-media
 ---
 apiVersion: v1
@@ -156,8 +163,7 @@ metadata:
   namespace: immich
 spec:
   accessModes: [ReadWriteOnce]
-  # Using local SSD for now. Once S3 bridge is active, this PVC will be swapped for the S3 one.
-  storageClassName: s3-csi 
+  storageClassName: s3-csi
   resources:
     requests:
       storage: 100Gi
