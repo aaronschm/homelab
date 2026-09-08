@@ -68,7 +68,7 @@ spec:
             - name: OWNCLOUD_DB_HOST
               value: "postgresql.postgresql.svc.cluster.local"
             - name: OWNCLOUD_REDIS_ENABLED
-              value: "true"
+              value: "false"
             - name: OWNCLOUD_REDIS_HOST
               value: "owncloud-redis"
             # Keep initial bring-up self-contained on Longhorn. MinIO-backed
