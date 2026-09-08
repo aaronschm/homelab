@@ -1,4 +1,4 @@
-# Creates the bucket Longhorn backs up to. Retries until MinIO is reachable and
+# Creates required buckets. Retries until MinIO is reachable and
 # the minio-root secret exists. Safe to re-run (mc mb -p is idempotent).
 apiVersion: batch/v1
 kind: Job
@@ -13,6 +13,10 @@ spec:
         app: minio-bucket-setup
     spec:
       restartPolicy: OnFailure
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
       containers:
         - name: mc
           image: minio/mc:RELEASE.2025-04-08T15-39-49Z
@@ -28,4 +32,5 @@ spec:
                 echo "waiting for minio..."; sleep 5
               done
               mc mb -p local/longhorn-backups
-              echo "bucket ready"
+              mc mb -p local/owncloud
+              echo "buckets ready"
