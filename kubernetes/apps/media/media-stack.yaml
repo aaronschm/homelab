@@ -301,6 +301,14 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - requests.isarcloud.eu
+        - movies.isarcloud.eu
+        - tv.isarcloud.eu
+        - torrent.isarcloud.eu
+      secretName: media-stack-tls
   rules:
     - host: requests.isarcloud.eu
       http:

@@ -59,48 +59,56 @@ locals {
   # Format + mount the worker data disks (scsi1=/dev/sdb, scsi2=/dev/sdc, ...).
   # Longhorn uses /var/mnt/longhorn (beta) and local-path/MinIO uses /var/mnt/alpha.
   # MinIO extra drives (raw passthrough, scsi3+) are appended to the same list.
-  worker_disks_patch = (length(var.worker_data_disks) + length(var.minio_extra_disks)) == 0 ? {} : {
-    machine = {
-      disks = concat(
-        [
-          for i, d in var.worker_data_disks : {
-            device     = "/dev/sd${substr("bcdefghijklmnopqrstuvwxyz", i, 1)}"
-            partitions = [{ mountpoint = d.mountpoint }]
-          }
-        ],
-        [
-          for d in var.minio_extra_disks : {
-            device     = d.device
-            partitions = [{ mountpoint = d.mountpoint }]
-          }
-        ]
-      )
-    }
-  }
+  worker_disk_entries = concat(
+    [
+      for i, d in var.worker_data_disks : {
+        device     = "/dev/sd${substr("bcdefghijklmnopqrstuvwxyz", i, 1)}"
+        partitions = [{ mountpoint = d.mountpoint }]
+      }
+    ],
+    [
+      for d in var.minio_extra_disks : {
+        device     = d.device
+        partitions = [{ mountpoint = d.mountpoint }]
+      }
+    ]
+  )
+
+  unique_worker_disk_entries = distinct(local.worker_disk_entries)
 
   # Bind-mount every data-disk path into kubelet so hostPath volumes and
   # Longhorn can reach them under /var.
+  kubelet_mount_entries = concat(
+    [
+      for d in var.worker_data_disks : {
+        destination = d.mountpoint
+        type        = "bind"
+        source      = d.mountpoint
+        options     = ["bind", "rshared", "rw"]
+      }
+    ],
+    [
+      for d in var.minio_extra_disks : {
+        destination = d.mountpoint
+        type        = "bind"
+        source      = d.mountpoint
+        options     = ["bind", "rshared", "rw"]
+      }
+    ]
+  )
+
+  unique_kubelet_mount_entries = distinct(local.kubelet_mount_entries)
+
+  worker_disks_patch = (length(var.worker_data_disks) + length(var.minio_extra_disks)) == 0 ? {} : {
+    machine = {
+      disks = local.unique_worker_disk_entries
+    }
+  }
+
   kubelet_mounts_patch = (length(var.worker_data_disks) + length(var.minio_extra_disks)) == 0 ? {} : {
     machine = {
       kubelet = {
-        extraMounts = concat(
-          [
-            for d in var.worker_data_disks : {
-              destination = d.mountpoint
-              type        = "bind"
-              source      = d.mountpoint
-              options     = ["bind", "rshared", "rw"]
-            }
-          ],
-          [
-            for d in var.minio_extra_disks : {
-              destination = d.mountpoint
-              type        = "bind"
-              source      = d.mountpoint
-              options     = ["bind", "rshared", "rw"]
-            }
-          ]
-        )
+        extraMounts = local.unique_kubelet_mount_entries
       }
     }
   }

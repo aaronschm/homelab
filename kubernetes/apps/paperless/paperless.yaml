@@ -153,6 +153,11 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - docs.isarcloud.eu
+      secretName: paperless-tls
   rules:
     - host: docs.isarcloud.eu
       http:

@@ -50,6 +50,93 @@ spec:
       labels:
         app: owncloud
     spec:
+      initContainers:
+        - name: owncloud-db-init
+          image: owncloud/server:latest
+          envFrom:
+            - secretRef:
+                name: owncloud-secret
+          env:
+            - name: OWNCLOUD_DB_TYPE
+              value: "pgsql"
+            - name: OWNCLOUD_DB_NAME
+              value: "owncloud"
+            - name: OWNCLOUD_DB_USERNAME
+              value: "owncloud"
+            - name: OWNCLOUD_DB_HOST
+              value: "postgresql.postgresql.svc.cluster.local"
+            - name: OWNCLOUD_DB_PORT
+              value: "5432"
+            - name: OWNCLOUD_DOMAIN
+              value: "files.isarcloud.eu"
+            - name: OWNCLOUD_TRUSTED_DOMAINS
+              value: "files.isarcloud.eu"
+            - name: OWNCLOUD_REDIS_ENABLED
+              value: "false"
+            - name: OWNCLOUD_REDIS_HOST
+              value: "owncloud-redis"
+            - name: OWNCLOUD_OBJECTSTORE_ENABLED
+              value: "false"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -eu
+              DB_HOST="${OWNCLOUD_DB_HOST%%:*}"
+              DB_PORT="${OWNCLOUD_DB_PORT:-5432}"
+              while ! timeout 2 bash -c ':</dev/tcp/"$0"/"$1"' "$DB_HOST" "$DB_PORT" 2>/dev/null
+              do
+                echo "waiting for PostgreSQL at ${DB_HOST}:${DB_PORT}"
+                sleep 5
+              done
+              mkdir -p /mnt/data/config
+              printf '%s\n' \
+                '<?php' \
+                '$CONFIG = [' \
+                "  'overwriteprotocol' => 'https'," \
+                "  'overwrite.cli.url' => 'https://files.isarcloud.eu'," \
+                "  'trusted_proxies' => ['10.0.0.0/8', '10.10.0.0/16']," \
+                '];' \
+                > /mnt/data/config/reverse-proxy.config.php
+              OCC_CMD=""
+              for candidate in /usr/bin/owncloud /usr/local/bin/occ /var/www/html/occ; do
+                if [ "$candidate" = "/usr/bin/owncloud" ] && [ -x "$candidate" ]; then
+                  OCC_CMD="$candidate occ"
+                  break
+                fi
+                if [ -x "$candidate" ]; then
+                  OCC_CMD="$candidate"
+                  break
+                fi
+              done
+              if [ -z "$OCC_CMD" ]; then
+                echo "ownCloud occ binary was not found in the container image" >&2
+                exit 127
+              fi
+              STATUS_OUTPUT="$($OCC_CMD status 2>&1 || true)"
+              if printf '%s\n' "$STATUS_OUTPUT" | grep -q 'oc_appconfig'; then
+                echo "removing incomplete ownCloud config from previous failed bootstrap"
+                rm -f /mnt/data/config/config.php
+                STATUS_OUTPUT=""
+              fi
+              if ! printf '%s\n' "$STATUS_OUTPUT" | grep -q 'installed'; then
+                echo "bootstrapping ownCloud database schema"
+                $OCC_CMD maintenance:install \
+                  --database pgsql \
+                  --database-name "$OWNCLOUD_DB_NAME" \
+                  --database-user "$OWNCLOUD_DB_USERNAME" \
+                  --database-pass "$OWNCLOUD_DB_PASSWORD" \
+                  --database-host "$OWNCLOUD_DB_HOST" \
+                  --admin-user "$OWNCLOUD_ADMIN_USERNAME" \
+                  --admin-pass "$OWNCLOUD_ADMIN_PASSWORD" \
+                  --data-dir /mnt/data \
+                  --no-interaction
+              else
+                echo "ownCloud database already initialized"
+              fi
+          volumeMounts:
+            - name: data
+              mountPath: /mnt/data
       containers:
         - name: owncloud
           image: owncloud/server:latest
@@ -67,13 +154,14 @@ spec:
               value: "owncloud"
             - name: OWNCLOUD_DB_HOST
               value: "postgresql.postgresql.svc.cluster.local"
+            - name: OWNCLOUD_DB_PORT
+              value: "5432"
+            - name: OWNCLOUD_TRUSTED_DOMAINS
+              value: "files.isarcloud.eu"
             - name: OWNCLOUD_REDIS_ENABLED
               value: "false"
             - name: OWNCLOUD_REDIS_HOST
               value: "owncloud-redis"
-            # Keep initial bring-up self-contained on Longhorn. MinIO-backed
-            # primary storage can be re-enabled later once the worker storage
-            # pool is rebuilt and stable.
             - name: OWNCLOUD_OBJECTSTORE_ENABLED
               value: "false"
           ports:
@@ -97,7 +185,7 @@ spec:
   storageClassName: longhorn-encrypted
   resources:
     requests:
-      storage: 100Gi
+      storage: 20Gi
 ---
 apiVersion: v1
 kind: Service
@@ -120,6 +208,11 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - files.isarcloud.eu
+      secretName: owncloud-tls
   rules:
     - host: files.isarcloud.eu
       http:

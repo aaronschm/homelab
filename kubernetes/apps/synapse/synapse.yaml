@@ -126,6 +126,12 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - matrix.isarcloud.eu
+        - chat.isarcloud.eu
+      secretName: synapse-tls
   rules:
     - host: matrix.isarcloud.eu
       http:

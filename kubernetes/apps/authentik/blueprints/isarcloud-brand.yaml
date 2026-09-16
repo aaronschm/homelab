@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+version: 1
+metadata:
+  name: isarcloud-default-brand
+entries:
+  - model: authentik_brands.brand
+    identifiers:
+      default: true
+    attrs:
+      domain: auth.isarcloud.eu
+      branding_title: Isarcloud Account
+      attributes:
+        settings:
+          locale: en

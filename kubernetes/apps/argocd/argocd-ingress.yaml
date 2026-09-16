@@ -4,9 +4,14 @@ metadata:
   name: argocd
   namespace: argocd
   annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - argocd.isarcloud.eu
+      secretName: argocd-tls
   rules:
     - host: argocd.isarcloud.eu
       http:

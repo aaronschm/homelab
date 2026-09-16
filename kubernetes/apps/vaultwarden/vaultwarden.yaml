@@ -75,6 +75,11 @@ metadata:
     # Vaultwarden requires websockets for live sync
     traefik.ingress.kubernetes.io/router.middlewares: vaultwarden-headers@kubernetescrd
 spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - vault.isarcloud.eu
+      secretName: vaultwarden-tls
   rules:
     - host: vault.isarcloud.eu
       http:

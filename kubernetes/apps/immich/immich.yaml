@@ -229,6 +229,11 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - photos.isarcloud.eu
+      secretName: immich-tls
   rules:
     - host: photos.isarcloud.eu
       http:

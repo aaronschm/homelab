@@ -11,3 +11,9 @@ resources:
   - authentik-service.yaml
   - redis.yaml
   - authentik-middleware.yaml
+
+configMapGenerator:
+  - name: authentik-blueprints
+    files:
+      - blueprints/embedded-outpost.yaml
+      - blueprints/isarcloud-brand.yaml

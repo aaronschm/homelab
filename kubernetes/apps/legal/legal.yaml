@@ -314,7 +314,15 @@ kind: Ingress
 metadata:
   name: legal
   namespace: legal
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - legal.isarcloud.eu
+      secretName: legal-tls
   rules:
     - host: legal.isarcloud.eu
       http:

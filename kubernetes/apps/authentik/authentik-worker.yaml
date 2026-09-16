@@ -34,9 +34,14 @@ spec:
           volumeMounts:
             - name: media
               mountPath: /media
+            - name: blueprints
+              mountPath: /blueprints/custom
             - name: templates
               mountPath: /templates
       volumes:
+        - name: blueprints
+          configMap:
+            name: authentik-blueprints
         - name: media
           emptyDir: {}
         - name: templates

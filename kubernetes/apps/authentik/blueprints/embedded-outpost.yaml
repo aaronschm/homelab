@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+version: 1
+metadata:
+  name: isarcloud-embedded-outpost
+entries:
+  - model: authentik_outposts.outpost
+    identifiers:
+      managed: goauthentik.io/outposts/embedded
+      name: authentik Embedded Outpost
+    attrs:
+      config:
+        authentik_host: https://auth.isarcloud.eu/
+        authentik_host_browser: https://auth.isarcloud.eu/
+        authentik_host_insecure: false
+        object_naming_template: ak-outpost-%(name)s
+        refresh_interval: minutes=5
+        kubernetes_namespace: authentik
+        kubernetes_ingress_annotations: {}
+        kubernetes_ingress_secret_name: authentik-outpost-tls
+        kubernetes_service_type: ClusterIP
+        kubernetes_disabled_components: []
+        kubernetes_image_pull_secrets: []
+        kubernetes_ingress_class_name: null
+        kubernetes_json_patches: null
+        kubernetes_disable_x509_strict: false

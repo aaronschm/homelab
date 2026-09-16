@@ -49,8 +49,10 @@
               name: AdGuard DNS filter
               id: 1
           user_rules:
-            - "||*.isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }}"
-            - "||isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }}"
+            - "||isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }},important"
+            - "||*.isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }},important"
+            - "||*.dlrg.isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }},important"
+            - "||metrics.isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }},important"
 
     - name: Detect existing AdGuard config path
       stat:
@@ -62,14 +64,42 @@
       set_fact:
         adguard_config_path: "{{ (adguard_config_stats.results | selectattr('stat.exists') | map(attribute='stat.path') | list | first) | default('') }}"
 
-    - name: Update wildcard isarcloud rewrite target
-      replace:
+    - name: Ensure apex isarcloud rewrite exists
+      lineinfile:
         path: "{{ adguard_config_path }}"
-        regexp: "(domain: '\\*\\.isarcloud\\.eu'\\n\\s+answer:)\\s+\\S+"
-        replace: "\\1 {{ adguard_rewrite_target }}"
+        line: '  - "||isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }},important"'
+        insertafter: "^\\s*user_rules:"
       when: adguard_config_path | length > 0
 
-    - name: Update apex isarcloud rewrite target
+    - name: Ensure wildcard isarcloud rewrite exists
+      lineinfile:
+        path: "{{ adguard_config_path }}"
+        line: '  - "||*.isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }},important"'
+        insertafter: "^\\s*user_rules:"
+      when: adguard_config_path | length > 0
+
+    - name: Ensure nested DLRG wildcard rewrite exists
+      lineinfile:
+        path: "{{ adguard_config_path }}"
+        line: '  - "||*.dlrg.isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }},important"'
+        insertafter: "^\\s*user_rules:"
+      when: adguard_config_path | length > 0
+
+    - name: Ensure metrics rewrite overrides filter blocklists
+      lineinfile:
+        path: "{{ adguard_config_path }}"
+        line: '  - "||metrics.isarcloud.eu^$dnsrewrite={{ adguard_rewrite_target }},important"'
+        insertafter: "^\\s*user_rules:"
+      when: adguard_config_path | length > 0
+
+    - name: Update legacy wildcard isarcloud rewrite target
+      replace:
+        path: "{{ adguard_config_path }}"
+        regexp: '(domain: ''\*\.isarcloud\.eu''\n\s+answer:)\s+\S+'
+        replace: '\1 {{ adguard_rewrite_target }}'
+      when: adguard_config_path | length > 0
+
+    - name: Update legacy apex isarcloud rewrite target
       replace:
         path: "{{ adguard_config_path }}"
         regexp: "(domain: isarcloud\\.eu\\n\\s+answer:)\\s+\\S+"

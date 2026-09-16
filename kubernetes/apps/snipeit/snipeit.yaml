@@ -227,6 +227,10 @@ metadata:
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - mpb.dlrg.isarcloud.eu
+      secretName: snipeit-tls
   rules:
     - host: mpb.dlrg.isarcloud.eu
       http:
