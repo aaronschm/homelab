@@ -81,9 +81,9 @@ function App() {
         
         <div className="p-8 max-w-6xl mx-auto">
           {activeTab === 'wireguard' && <WireGuardView router={activeRouter} />}
-          {activeTab === 'interfaces' && <InterfacesView router={activeRouter} />}
-          {activeTab === 'clients' && <ClientsView router={activeRouter} />}
-          {activeTab === 'firewall' && <FirewallView router={activeRouter} />}
+          {activeTab === 'interfaces' && <InterfacesView />}
+          {activeTab === 'clients' && <ClientsView />}
+          {activeTab === 'firewall' && <FirewallView />}
         </div>
       </main>
     </div>
