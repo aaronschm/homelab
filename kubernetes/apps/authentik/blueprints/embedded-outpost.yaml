@@ -3,11 +3,92 @@ version: 1
 metadata:
   name: isarcloud-embedded-outpost
 entries:
+  - model: authentik_providers_proxy.proxyprovider
+    id: isarcloud-network-provider
+    identifiers:
+      name: isarcloud Network
+    attrs:
+      name: isarcloud Network
+      mode: forward_single
+      external_host: https://network.isarcloud.eu
+      authentication_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: isarcloud-network
+    attrs:
+      name: Network
+      provider: !KeyOf isarcloud-network-provider
+      meta_launch_url: https://network.isarcloud.eu
+
+  - model: authentik_providers_proxy.proxyprovider
+    id: isarcloud-metrics-provider
+    identifiers:
+      name: isarcloud Metrics
+    attrs:
+      name: isarcloud Metrics
+      mode: forward_single
+      external_host: https://metrics.isarcloud.eu
+      authentication_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: isarcloud-metrics
+    attrs:
+      name: Metrics
+      provider: !KeyOf isarcloud-metrics-provider
+      meta_launch_url: https://metrics.isarcloud.eu
+
+  - model: authentik_providers_proxy.proxyprovider
+    id: isarcloud-landing-internal-provider
+    identifiers:
+      name: isarcloud Internal Services
+    attrs:
+      name: isarcloud Internal Services
+      mode: forward_single
+      external_host: https://isarcloud.eu
+      authentication_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: isarcloud-internal-services
+    attrs:
+      name: Internal Services
+      provider: !KeyOf isarcloud-landing-internal-provider
+      meta_launch_url: https://isarcloud.eu/internal.html
+
+  - model: authentik_providers_proxy.proxyprovider
+    id: isarcloud-www-landing-internal-provider
+    identifiers:
+      name: isarcloud WWW Internal Services
+    attrs:
+      name: isarcloud WWW Internal Services
+      mode: forward_single
+      external_host: https://www.isarcloud.eu
+      authentication_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: isarcloud-www-internal-services
+    attrs:
+      name: WWW Internal Services
+      provider: !KeyOf isarcloud-www-landing-internal-provider
+      meta_launch_url: https://www.isarcloud.eu/internal.html
+
   - model: authentik_outposts.outpost
     identifiers:
       managed: goauthentik.io/outposts/embedded
       name: authentik Embedded Outpost
     attrs:
+      providers:
+        - !KeyOf isarcloud-network-provider
+        - !KeyOf isarcloud-metrics-provider
+        - !KeyOf isarcloud-landing-internal-provider
+        - !KeyOf isarcloud-www-landing-internal-provider
       config:
         authentik_host: https://auth.isarcloud.eu/
         authentik_host_browser: https://auth.isarcloud.eu/
